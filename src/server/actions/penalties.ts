@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import type { ActionResult } from "@/lib/action-result";
 import { AppError } from "@/lib/errors";
 import { parseEuroToCents } from "@/lib/format";
@@ -13,6 +14,7 @@ import {
   setPenaltyPaid,
   updatePenalty,
 } from "@/server/services/penalties";
+import { notifyPenaltyCreated } from "@/server/services/notifications";
 import { requireActor } from "@/server/auth/session";
 import { optStr, runAction, str } from "./utils";
 
@@ -42,7 +44,10 @@ export async function savePenaltyAction(_prev: ActionResult | null, fd: FormData
       comment: optStr(fd, "comment"),
     };
     if (id) await updatePenalty(actor, id, raw);
-    else await createPenalty(actor, raw);
+    else {
+      const penaltyId = await createPenalty(actor, raw);
+      after(() => notifyPenaltyCreated(penaltyId));
+    }
     revalidatePath("/", "layout");
     return "Strafe eingetragen.";
   });

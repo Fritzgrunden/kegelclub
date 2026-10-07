@@ -15,7 +15,11 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "3mb" },
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      // Service Worker nie zwischenspeichern, damit Updates sofort ankommen.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] },
+    ];
   },
 };
 

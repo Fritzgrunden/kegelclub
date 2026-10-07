@@ -25,7 +25,7 @@ export async function createTestUser(opts: { roles?: Role[]; status?: UserStatus
 
 export async function truncateAll() {
   await getDb().execute(sql`
-    truncate table penalties, penalty_types, game_results, game_sessions, game_rules, games,
+    truncate table push_subscriptions, penalties, penalty_types, game_results, game_sessions, game_rules, games,
       event_participations, events, event_series, password_reset_tokens, sessions, rate_limits,
       user_roles, profiles, images, users, settings restart identity cascade
   `);

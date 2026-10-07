@@ -7,6 +7,8 @@ import { getMember } from "@/server/services/users";
 import { changePasswordAction } from "@/server/actions/profile";
 import { AvatarUpload } from "@/components/members/avatar-upload";
 import { ProfileForm } from "@/components/members/profile-form";
+import { PushSettings } from "@/components/members/push-settings";
+import { getVapidPublicKey } from "@/server/services/push";
 import { ActionForm } from "@/components/ui/action-form";
 import { Field, Input, SubmitButton } from "@/components/ui/fields";
 import { PageHeader } from "@/components/ui/page-header";
@@ -35,6 +37,10 @@ export default async function ProfilePage() {
           <Card>
             <CardTitle>Persönliche Daten</CardTitle>
             <ProfileForm member={member} />
+          </Card>
+          <Card>
+            <CardTitle>Benachrichtigungen</CardTitle>
+            <PushSettings vapidPublicKey={getVapidPublicKey()} />
           </Card>
           <Card>
             <CardTitle>Passwort ändern</CardTitle>

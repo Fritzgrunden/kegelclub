@@ -124,6 +124,22 @@ export const rateLimits = pgTable("rate_limits", {
   windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
 });
 
+/** Web-Push-Abo eines Geräts. Ein Benutzer kann mehrere Geräte haben. */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("push_subscriptions_user_idx").on(t.userId)],
+);
+
 /* ───────────── Termine ───────────── */
 
 /** Regel einer wiederkehrenden Terminserie. Einzeltermine liegen in `events`. */

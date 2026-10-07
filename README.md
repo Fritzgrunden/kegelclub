@@ -44,6 +44,8 @@ Alle Variablen stehen mit Kommentaren in `.env.example`. Es gibt **keine** Zugan
 | `CLUB_NAME` | nein | Standard-Vereinsname, kann im Admin-Bereich überschrieben werden. |
 | `RESEND_API_KEY` | nein | API-Key für den E-Mail-Versand über [Resend](https://resend.com). Ohne Key werden Mails in der Entwicklung nur in der Server-Konsole ausgegeben. |
 | `MAIL_FROM` | mit Resend | Absender, z. B. `Kegelclub <kegelclub@deine-domain.de>` (Domain muss bei Resend verifiziert sein). |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | nein | Schlüsselpaar für Push-Benachrichtigungen (Admins bei neuen Registrierungen, Mitglieder bei neuen Strafen). Einmalig erzeugen mit `npx web-push generate-vapid-keys`. Ohne Schlüssel ist Push deaktiviert. |
+| `VAPID_SUBJECT` | mit Push | Kontakt für die Push-Dienste, z. B. `mailto:vorstand@example.org`. |
 | `SEED_DEMO_PASSWORD` | nur Seed | Passwort für alle Demo-Konten (mind. 10 Zeichen). |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME` | nein | Nur für `npm run admin:create` ohne interaktive Eingabe (z. B. in CI). |
 
@@ -144,6 +146,7 @@ Die Tests laufen gegen ein **echtes PostgreSQL im Arbeitsspeicher** (PGlite) –
 | `tests/penalties.test.ts` | Strafen nur durch Kassenwart (nicht Admin, nicht Mitglied), Sichtbarkeit nur eigener Strafen, Katalogschutz |
 | `tests/results.test.ts` | Ergebniserfassung, Rechte bei abgeschlossenen Runden, Rangliste & persönliche Statistik |
 | `tests/scoring.test.ts` | Platzierungen, Gleichstand, „niedrigster Wert gewinnt“, Ranglistenpunkte |
+| `tests/notifications.test.ts` | Push-Abos (Besitzerwechsel, nur eigene löschen, abgelaufene aufräumen), Empfänger bei neuer Registrierung und neuer Strafe |
 
 ## 9. Ersten Admin anlegen
 
@@ -176,7 +179,7 @@ Danach werden alle weiteren Mitglieder so aufgenommen: Mitglied registriert sich
    DATABASE_URL="postgres://…" npm run admin:create
    ```
 3. Repository bei **Vercel** importieren (Framework wird automatisch erkannt).
-4. Unter *Settings → Environment Variables* setzen: `DATABASE_URL`, `APP_URL` (z. B. `https://kegelclub.vercel.app`), optional `CLUB_NAME`, `RESEND_API_KEY`, `MAIL_FROM`.
+4. Unter *Settings → Environment Variables* setzen: `DATABASE_URL`, `APP_URL` (z. B. `https://kegelclub.vercel.app`), optional `CLUB_NAME`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
 5. Deploy. Bei späteren Schemaänderungen vor dem Deploy `npm run db:migrate` gegen die Produktions-DB ausführen.
 
 Hinweise:

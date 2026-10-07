@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import type { ActionResult } from "@/lib/action-result";
 import { AppError } from "@/lib/errors";
 import { authenticate, deleteSession, registerUser, requestPasswordReset, resetPassword } from "@/server/services/auth";
+import { notifyNewRegistration } from "@/server/services/notifications";
 import { clearSessionCookie, getClientKey, getSessionToken, setSessionCookie } from "@/server/auth/session";
 import { optStr, runAction, str } from "./utils";
 
@@ -27,7 +29,7 @@ export async function registerAction(_prev: ActionResult | null, fd: FormData): 
     if (str(fd, "password") !== str(fd, "passwordConfirm")) {
       throw new AppError("Die Passwörter stimmen nicht überein.", "VALIDATION", { passwordConfirm: "Stimmt nicht mit dem Passwort überein." });
     }
-    await registerUser(
+    const user = await registerUser(
       {
         email: str(fd, "email"),
         password: str(fd, "password"),
@@ -38,6 +40,7 @@ export async function registerAction(_prev: ActionResult | null, fd: FormData): 
       },
       await getClientKey(),
     );
+    after(() => notifyNewRegistration(user.id));
     return "Registrierung erfolgreich! Sobald ein Admin dein Konto freigeschaltet hat, kannst du dich anmelden.";
   });
 }
