@@ -102,8 +102,9 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
         if (status === 404 || status === 410) expired.push(sub.id);
         else if (status >= 200 && status < 300) delivered++;
         else console.error(`Push-Versand fehlgeschlagen (HTTP ${status}).`);
-      } catch {
-        console.error("Push-Versand fehlgeschlagen (Netzwerkfehler).");
+      } catch (error) {
+        // z. B. ungültiger VAPID-Schlüssel/-Subject oder Netzwerkfehler (Meldungen enthalten keine Schlüssel)
+        console.error("Push-Versand fehlgeschlagen:", error instanceof Error ? error.message : "unbekannt");
       }
     }),
   );
