@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bahn: #1d1510;
+  --color-theke: #2a1f17;
+  --color-theke-2: #35281e;
+  --color-eiche: #574030;
+  --color-kreide: #f1e8d6;
+  --color-kreide-dim: #bba98d;
+  --color-messing: #d8a23f;
+  --color-messing-hell: #ecc06a;
+  --color-tafel: #25382e;
+  --color-tafel-dunkel: #1b2a22;
+  --color-zusage: #86bf7f;
+  --color-absage: #d6684f;
+  --color-offen: #9a8a74;
+
+  --font-display: "Rockwell", "Rockwell Nova", "Roboto Slab", "Zilla Slab", "Bitter", "DejaVu Serif", Georgia, serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-bahn text-kreide font-sans antialiased;
+    /* Dezente Holzmaserung */
+    background-image:
+      repeating-linear-gradient(92deg, rgb(255 255 255 / 0.012) 0 2px, transparent 2px 9px),
+      repeating-linear-gradient(88deg, rgb(0 0 0 / 0.08) 0 1px, transparent 1px 23px);
+    min-height: 100dvh;
+  }
+  h1, h2, h3 {
+    @apply font-display;
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-messing-hell);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.85); }
+}
+
+@layer components {
+  /* Die Kreidetafel im Holzrahmen – das prägende Element der App */
+  .tafel {
+    position: relative;
+    background-color: var(--color-tafel);
+    background-image:
+      radial-gradient(ellipse at 20% 15%, rgb(255 255 255 / 0.06), transparent 55%),
+      radial-gradient(ellipse at 85% 90%, rgb(255 255 255 / 0.04), transparent 50%),
+      radial-gradient(circle at 60% 40%, rgb(0 0 0 / 0.18), transparent 70%);
+    border: 7px solid #5d4230;
+    border-image: linear-gradient(135deg, #6e4f38, #4a3324 40%, #6b4c35 70%, #3f2c1f) 1;
+    box-shadow: inset 0 0 40px rgb(0 0 0 / 0.45), 0 10px 30px rgb(0 0 0 / 0.35);
+  }
+  .kreide {
+    color: #f4f1e8;
+    text-shadow: 0 0 1px rgb(255 255 255 / 0.35), 0 0 6px rgb(255 255 255 / 0.08);
+  }
+  .holzleiste {
+    background-color: #2f2219;
+    background-image: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.02) 0 3px, transparent 3px 14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
