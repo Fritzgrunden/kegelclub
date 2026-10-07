@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/server/db";
-import { passwordResetTokens, profiles, sessions, userRoles, users } from "@/server/db/schema";
+import { passwordResetTokens, profiles, sessions, userRoles, users, type Role } from "@/server/db/schema";
 import { AppError } from "@/lib/errors";
 import { displayName } from "@/lib/format";
 import { emailSchema, passwordSchema, registerSchema, zodFieldErrors } from "@/lib/validation";
@@ -100,6 +100,8 @@ export async function getUserBySessionToken(token: string): Promise<SessionUser 
       nickname: profiles.nickname,
       avatarImageId: profiles.avatarImageId,
       expiresAt: sessions.expiresAt,
+      // Rollen in derselben Abfrage – spart auf jeder Seite einen Datenbank-Roundtrip.
+      roles: sql<Role[]>`coalesce((select array_agg(${userRoles.role}::text) from ${userRoles} where ${userRoles.userId} = ${users.id}), '{}')`,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -115,12 +117,11 @@ export async function getUserBySessionToken(token: string): Promise<SessionUser 
   }
   if (s.status !== "AKTIV" && s.status !== "PASSIV") return null;
 
-  const roles = await db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, s.id));
   return {
     id: s.id,
     email: s.email,
     status: s.status,
-    roles: roles.map((r) => r.role),
+    roles: s.roles,
     firstName: s.firstName,
     lastName: s.lastName,
     nickname: s.nickname,

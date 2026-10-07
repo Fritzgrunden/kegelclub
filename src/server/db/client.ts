@@ -24,6 +24,8 @@ export function createDb(url: string): { db: DB; pglite?: PGlite } {
     const pglite = target === "memory" ? new PGlite() : new PGlite(target);
     return { db: drizzlePglite(pglite, { schema }) as unknown as DB, pglite };
   }
+  // Auf Vercel bewusst nur eine Verbindung: postgres.js bündelt parallele Abfragen (Pipelining) darüber,
+  // das ist schneller als der Aufbau weiterer Verbindungen (je ~250 ms).
   const client = postgres(url, { max: process.env.VERCEL ? 1 : 10, prepare: false });
   return { db: drizzlePostgres(client, { schema }) };
 }

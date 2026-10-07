@@ -6,8 +6,7 @@ import { getSettings } from "@/server/services/settings";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const user = await requireUser();
-  const { clubName } = await getSettings();
+  const [user, { clubName }] = await Promise.all([requireUser(), getSettings()]);
   return (
     <AppShell user={user} clubName={clubName}>
       {children}

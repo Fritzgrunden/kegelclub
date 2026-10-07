@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // Profilbilder werden clientseitig verkleinert; 3 MB lässt Puffer für das Original-Limit (2 MB).
     serverActions: { bodySizeLimit: "3mb" },
+    // Bereits besuchte Seiten 30 s im Browser vorhalten: Zurück-Navigation und erneutes Öffnen sind sofort da.
+    // Eigene Änderungen (Server Actions mit revalidatePath) leeren den Cache trotzdem sofort.
+    staleTimes: { dynamic: 30 },
   },
   async headers() {
     return [
