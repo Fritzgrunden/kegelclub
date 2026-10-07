@@ -1,5 +1,6 @@
 import "server-only";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
+import { addDaysYmd, toYmd, zonedToUtc } from "@/lib/dates";
 import { db } from "@/server/db";
 import { events, penalties, penaltyTypes, profiles } from "@/server/db/schema";
 import { AppError, NotFoundError } from "@/lib/errors";
@@ -74,6 +75,28 @@ export async function createPenalty(actor: Actor, raw: unknown) {
   return row.id;
 }
 
+/**
+ * Schnellerfassung an der Bahn: nur Mitglied + Strafart. Datum ist heute, der Termin wird automatisch
+ * zugeordnet, wenn heute einer stattfindet (Kegelabend bevorzugt).
+ */
+export async function createQuickPenalty(actor: Actor, userId: string, penaltyTypeId: string) {
+  assertCan(actor, "penalties:manage", KASSENWART_ONLY);
+  const today = toYmd(new Date());
+  const todays = await db
+    .select({ id: events.id, kind: events.kind })
+    .from(events)
+    .where(
+      and(
+        gte(events.startsAt, zonedToUtc(today, "00:00")),
+        lt(events.startsAt, zonedToUtc(addDaysYmd(today, 1), "00:00")),
+        ne(events.status, "ABGESAGT"),
+      ),
+    )
+    .orderBy(asc(events.startsAt));
+  const event = todays.find((e) => e.kind === "KEGELABEND") ?? todays[0];
+  return createPenalty(actor, { userId, penaltyTypeId, amountCents: null, date: today, eventId: event?.id ?? null });
+}
+
 export async function updatePenalty(actor: Actor, id: string, raw: unknown) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
   const values = await resolve(raw);
@@ -90,6 +113,17 @@ export async function deletePenalty(actor: Actor, id: string) {
 export async function setPenaltyPaid(actor: Actor, id: string, paid: boolean) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
   await db.update(penalties).set({ paidAt: paid ? new Date() : null, updatedAt: new Date() }).where(eq(penalties.id, id));
+}
+
+/** Ein Mitglied zahlt alles auf einmal: alle offenen Strafen als bezahlt markieren. Gibt die Anzahl zurück. */
+export async function markAllPaidForMember(actor: Actor, userId: string) {
+  assertCan(actor, "penalties:manage", KASSENWART_ONLY);
+  const res = await db
+    .update(penalties)
+    .set({ paidAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(penalties.userId, userId), isNull(penalties.paidAt)))
+    .returning({ id: penalties.id });
+  return res.length;
 }
 
 export async function getPenalty(id: string) {

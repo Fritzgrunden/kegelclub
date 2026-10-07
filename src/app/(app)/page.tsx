@@ -81,7 +81,7 @@ export default async function DashboardPage() {
             </LinkButton>
           )}
           {isKassenwart && (
-            <LinkButton href={`/strafen/neu${nextEvening ? `?termin=${nextEvening.id}` : ""}`} variant="secondary" className="shrink-0">
+            <LinkButton href="/strafen" variant="secondary" className="shrink-0">
               <Gavel size={18} aria-hidden /> Strafe eintragen
             </LinkButton>
           )}

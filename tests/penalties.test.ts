@@ -1,14 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   createPenalty,
+  createQuickPenalty,
   deletePenalty,
   deletePenaltyType,
   getOpenPenaltySummary,
   listPenalties,
+  markAllPaidForMember,
   savePenaltyType,
   setPenaltyPaid,
   updatePenalty,
 } from "@/server/services/penalties";
+import { getDb } from "@/server/db/client";
+import { events } from "@/server/db/schema";
+import { addDaysYmd, toYmd, zonedToUtc } from "@/lib/dates";
 import { createTestUser, truncateAll } from "./helpers";
 
 beforeEach(truncateAll);
@@ -86,5 +91,52 @@ describe("Strafen", () => {
     const { kassenwart, peter, typeId } = await setup();
     await createPenalty(kassenwart, penaltyFor(peter.id, typeId));
     await expect(deletePenaltyType(kassenwart, typeId)).rejects.toThrow(/inaktiv/);
+  });
+});
+
+describe("Schnellerfassung & Kassieren", () => {
+  async function addEvent(kind: "KEGELABEND" | "EVENT", startsAt: Date, status: "GEPLANT" | "ABGESAGT" = "GEPLANT") {
+    const [e] = await getDb().insert(events).values({ kind, title: kind, startsAt, status }).returning({ id: events.id });
+    return e.id;
+  }
+
+  it("Schnellerfassung: Datum heute, Betrag aus Katalog, heutiger Kegelabend wird zugeordnet", async () => {
+    const { kassenwart, peter, typeId } = await setup();
+    const today = toYmd(new Date());
+    await addEvent("EVENT", zonedToUtc(today, "10:00"));
+    const evening = await addEvent("KEGELABEND", zonedToUtc(today, "19:00"));
+    await addEvent("KEGELABEND", zonedToUtc(addDaysYmd(today, 1), "19:00"));
+
+    await createQuickPenalty(kassenwart, peter.id, typeId);
+    const [p] = await listPenalties(kassenwart, { userId: peter.id });
+    expect(p).toMatchObject({ label: "Zu spät gekommen", amountCents: 200, date: today, eventId: evening });
+  });
+
+  it("Schnellerfassung ohne heutigen Termin – abgesagte Termine zählen nicht", async () => {
+    const { kassenwart, peter, typeId } = await setup();
+    await addEvent("KEGELABEND", zonedToUtc(toYmd(new Date()), "19:00"), "ABGESAGT");
+    await createQuickPenalty(kassenwart, peter.id, typeId);
+    const [p] = await listPenalties(kassenwart, { userId: peter.id });
+    expect(p.eventId).toBeNull();
+  });
+
+  it("Schnellerfassung nur durch den Kassenwart", async () => {
+    const { admin, peter, typeId } = await setup();
+    await expect(createQuickPenalty(admin, peter.id, typeId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(createQuickPenalty(peter, peter.id, typeId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("„Alles bezahlt“ markiert nur die offenen Strafen dieses Mitglieds", async () => {
+    const { kassenwart, admin, peter, max, typeId } = await setup();
+    await createPenalty(kassenwart, penaltyFor(peter.id, typeId));
+    await createPenalty(kassenwart, penaltyFor(peter.id, typeId));
+    const alreadyPaid = await createPenalty(kassenwart, penaltyFor(peter.id, typeId));
+    await setPenaltyPaid(kassenwart, alreadyPaid, true);
+    await createPenalty(kassenwart, penaltyFor(max.id, typeId));
+
+    await expect(markAllPaidForMember(admin, peter.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await markAllPaidForMember(kassenwart, peter.id)).toBe(2);
+    expect(await getOpenPenaltySummary(peter.id)).toEqual({ count: 0, totalCents: 0 });
+    expect(await getOpenPenaltySummary(max.id)).toEqual({ count: 1, totalCents: 200 });
   });
 });

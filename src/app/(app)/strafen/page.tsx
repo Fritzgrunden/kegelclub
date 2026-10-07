@@ -4,8 +4,12 @@ import { BookOpen, Plus } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { formatEuro } from "@/lib/format";
 import { requireUser } from "@/server/auth/session";
-import { getOpenPenaltySummary, getOpenTotalsByMember, listPenalties } from "@/server/services/penalties";
+import { getOpenPenaltySummary, getOpenTotalsByMember, listPenalties, listPenaltyTypes } from "@/server/services/penalties";
+import { listMembers } from "@/server/services/users";
+import { markAllPaidAction } from "@/server/actions/penalties";
 import { PenaltyList } from "@/components/penalties/penalty-list";
+import { QuickPenaltyBoard } from "@/components/penalties/quick-penalty-board";
+import { ActionButton } from "@/components/ui/action-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -38,7 +42,13 @@ export default async function PenaltiesPage({ searchParams }: { searchParams: Pr
     );
   }
 
-  const [items, totals] = await Promise.all([listPenalties(user, { userId: sp.mitglied, openOnly }), getOpenTotalsByMember(user)]);
+  const [items, totals, members, types] = await Promise.all([
+    listPenalties(user, { userId: sp.mitglied, openOnly }),
+    getOpenTotalsByMember(user),
+    manage ? listMembers() : Promise.resolve([]),
+    manage ? listPenaltyTypes() : Promise.resolve([]),
+  ]);
+  const openByMember = new Map(totals.map((t) => [t.userId, t.total]));
   const filterHref = (f: string | null) => {
     const q = new URLSearchParams();
     if (sp.mitglied) q.set("mitglied", sp.mitglied);
@@ -55,13 +65,42 @@ export default async function PenaltiesPage({ searchParams }: { searchParams: Pr
         actions={
           <>
             <LinkButton href="/strafen/katalog" variant="secondary"><BookOpen size={18} aria-hidden /> Katalog</LinkButton>
-            {manage && <LinkButton href="/strafen/neu"><Plus size={18} aria-hidden /> Strafe eintragen</LinkButton>}
+            {manage && <LinkButton href="/strafen/neu" variant="secondary"><Plus size={18} aria-hidden /> Ausführlich</LinkButton>}
           </>
         }
       />
       {sp.gespeichert && <Alert tone="success" className="mb-4">Strafe eingetragen.</Alert>}
+
+      {manage && (
+        <Card className="mb-5">
+          <CardTitle>Strafe eintragen</CardTitle>
+          {types.length === 0 ? (
+            <Alert>
+              Lege zuerst den <Link href="/strafen/katalog" className="font-semibold underline underline-offset-4">Strafkatalog</Link> an –
+              danach trägst du Strafen hier mit zwei Taps ein.
+            </Alert>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-kreide-dim">Mitglied antippen, Strafart wählen – fertig. Datum und heutiger Termin werden automatisch gesetzt.</p>
+              <QuickPenaltyBoard
+                members={members.map((m) => ({
+                  id: m.id,
+                  displayName: m.displayName,
+                  firstName: m.firstName,
+                  lastName: m.lastName,
+                  avatarImageId: m.avatarImageId,
+                  openCents: openByMember.get(m.id) ?? 0,
+                }))}
+                types={types.map((t) => ({ id: t.id, name: t.name, amountCents: t.amountCents }))}
+              />
+            </>
+          )}
+        </Card>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-        <div>
+        <div className="order-last lg:order-none">
+          <h2 className="mb-3 font-display text-xl font-bold">Verlauf</h2>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Link href={filterHref(null)} className={cn("flex min-h-10 items-center rounded-full border px-4 text-sm", !openOnly ? "border-messing bg-messing/15 text-messing-hell" : "border-eiche text-kreide-dim")}>Alle</Link>
             <Link href={filterHref("offen")} className={cn("flex min-h-10 items-center rounded-full border px-4 text-sm", openOnly ? "border-messing bg-messing/15 text-messing-hell" : "border-eiche text-kreide-dim")}>Nur offene</Link>
@@ -78,13 +117,29 @@ export default async function PenaltiesPage({ searchParams }: { searchParams: Pr
           {totals.length === 0 ? <p className="text-kreide-dim">Alles bezahlt.</p> : (
             <ul className="flex flex-col">
               {totals.map((t) => (
-                <li key={t.userId}>
-                  <Link href={`/strafen?mitglied=${t.userId}`} className="flex min-h-12 items-center gap-3 border-b border-eiche/50 last:border-0">
+                <li key={t.userId} className="flex min-h-14 items-center gap-2 border-b border-eiche/50 last:border-0">
+                  <Link href={`/strafen?mitglied=${t.userId}`} className="flex min-h-12 min-w-0 flex-1 items-center gap-3">
                     <Avatar person={t} size="sm" />
                     <span className="flex-1 truncate">{t.displayName}</span>
                     <span className="text-xs text-kreide-dim">{t.n}×</span>
                     <span className="font-display font-bold tabular-nums">{formatEuro(t.total)}</span>
                   </Link>
+                  {manage && (
+                    <ActionButton
+                      action={markAllPaidAction}
+                      fields={{ userId: t.userId }}
+                      variant="zusage"
+                      size="sm"
+                      ariaLabel={`Alle Strafen von ${t.displayName} bezahlt`}
+                      confirm={{
+                        title: `${t.displayName} zahlt ${formatEuro(t.total)}?`,
+                        text: t.n === 1 ? "Die offene Strafe wird als bezahlt markiert." : `Alle ${t.n} offenen Strafen werden als bezahlt markiert.`,
+                        confirmLabel: "Bezahlt",
+                      }}
+                    >
+                      Bezahlt
+                    </ActionButton>
+                  )}
                 </li>
               ))}
             </ul>

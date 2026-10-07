@@ -8,8 +8,10 @@ import { AppError } from "@/lib/errors";
 import { parseEuroToCents } from "@/lib/format";
 import {
   createPenalty,
+  createQuickPenalty,
   deletePenalty,
   deletePenaltyType,
+  markAllPaidForMember,
   savePenaltyType,
   setPenaltyPaid,
   updatePenalty,
@@ -53,6 +55,34 @@ export async function savePenaltyAction(_prev: ActionResult | null, fd: FormData
   });
   if (result.ok && !again) redirect("/strafen?gespeichert=1");
   return result;
+}
+
+/** So lange kann eine Schnellerfassung rückgängig gemacht werden, bevor das Mitglied benachrichtigt wird. */
+const UNDO_WINDOW_MS = 10_000;
+
+export async function quickPenaltyAction(fd: FormData): Promise<ActionResult & { penaltyId?: string }> {
+  let penaltyId: string | undefined;
+  const result = await runAction(async () => {
+    const actor = await requireActor();
+    const id = await createQuickPenalty(actor, str(fd, "userId"), str(fd, "penaltyTypeId"));
+    penaltyId = id;
+    // Erst nach Ablauf der Rückgängig-Frist benachrichtigen; wurde die Strafe gelöscht, geht nichts raus.
+    after(async () => {
+      await new Promise((r) => setTimeout(r, UNDO_WINDOW_MS));
+      await notifyPenaltyCreated(id);
+    });
+    revalidatePath("/", "layout");
+  });
+  return { ...result, penaltyId };
+}
+
+export async function markAllPaidAction(fd: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireActor();
+    const n = await markAllPaidForMember(actor, str(fd, "userId"));
+    revalidatePath("/", "layout");
+    return n === 1 ? "1 Strafe als bezahlt markiert." : `${n} Strafen als bezahlt markiert.`;
+  });
 }
 
 export async function deletePenaltyAction(fd: FormData): Promise<ActionResult> {
