@@ -10,7 +10,7 @@ import { NAV_ITEMS } from "./nav-items";
 import { SidebarLink, TabLink } from "./nav-link";
 
 export function AppShell({ user, clubName, children }: { user: SessionUser; clubName: string; children: ReactNode }) {
-  const items = NAV_ITEMS.filter((i) => !i.permission || hasPermission(user, i.permission));
+  const items = NAV_ITEMS.filter((i) => !i.permission || [i.permission].flat().some((p) => hasPermission(user, p)));
   const tabs = items.filter((i) => i.mobileTab);
 
   return (

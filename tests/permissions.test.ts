@@ -11,23 +11,26 @@ beforeEach(truncateAll);
 const eventInput = { kind: "KEGELABEND", title: "Kegelabend", date: "2026-11-06", time: "19:00", recurrence: "KEINE" };
 
 describe("Rollen-Rechte-Matrix", () => {
-  it("Mitglied hat nur Basisrechte", () => {
-    const m = { roles: ["MITGLIED" as const] };
+  it("Mitglied hat nur Basisrechte", async () => {
+    const m = await createTestUser();
     expect(hasPermission(m, "events:rsvp")).toBe(true);
     expect(hasPermission(m, "events:manage")).toBe(false);
     expect(hasPermission(m, "penalties:manage")).toBe(false);
     expect(hasPermission(m, "members:manage")).toBe(false);
   });
 
-  it("Kassenwart verwaltet Strafen, aber keine Termine", () => {
-    const k = { roles: ["MITGLIED" as const, "KASSENWART" as const] };
+  it("Kassenwart verwaltet Strafen und Beiträge, aber keine Termine", async () => {
+    const k = await createTestUser({ roles: ["KASSENWART"] });
+    expect(hasPermission(k, "dues:manage")).toBe(true);
     expect(hasPermission(k, "penalties:manage")).toBe(true);
     expect(hasPermission(k, "penalty-catalog:manage")).toBe(true);
     expect(hasPermission(k, "events:manage")).toBe(false);
   });
 
-  it("Admin verwaltet alles außer Strafvergabe", () => {
-    const a = { roles: ["ADMIN" as const] };
+  it("Admin verwaltet alles außer Strafvergabe", async () => {
+    const a = await createTestUser({ roles: ["ADMIN"] });
+    expect(hasPermission(a, "roles:manage")).toBe(true);
+    expect(hasPermission(a, "events:rsvp")).toBe(true);
     expect(hasPermission(a, "events:manage")).toBe(true);
     expect(hasPermission(a, "roles:assign")).toBe(true);
     expect(hasPermission(a, "penalties:manage")).toBe(false);

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ROLE_LABELS } from "@/lib/permissions";
+import { MEMBER_ROLE } from "@/lib/permissions";
 import { USER_STATUS_LABELS } from "@/lib/format";
 import { requireUser } from "@/server/auth/session";
 import { getMember } from "@/server/services/users";
@@ -29,7 +29,7 @@ export default async function ProfilePage() {
         <Card className="flex flex-col items-center gap-4">
           <AvatarUpload person={member} />
           <div className="flex flex-wrap justify-center gap-1.5">
-            {member.roles.map((r) => <Badge key={r} tone={r === "MITGLIED" ? "neutral" : "messing"}>{ROLE_LABELS[r]}</Badge>)}
+            {member.roles.map((r) => <Badge key={r.key} tone={r.key === MEMBER_ROLE ? "neutral" : "messing"}>{r.name}</Badge>)}
             <Badge tone="zusage">{USER_STATUS_LABELS[member.status]}</Badge>
           </div>
         </Card>

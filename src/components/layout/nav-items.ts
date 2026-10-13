@@ -2,13 +2,14 @@ import type { Permission } from "@/lib/permissions";
 
 export type IconName =
   | "House" | "CircleDot" | "CalendarDays" | "Dices" | "Ellipsis" | "PartyPopper" | "Users"
-  | "Trophy" | "Gavel" | "CircleUser" | "Settings";
+  | "Trophy" | "Gavel" | "Wallet" | "CircleUser" | "Settings";
 
 export interface NavItem {
   href: string;
   label: string;
   icon: IconName;
-  permission?: Permission;
+  /** Sichtbar, wenn der Benutzer mindestens eines dieser Rechte hat. */
+  permission?: Permission | Permission[];
   /** In der mobilen Tab-Leiste anzeigen */
   mobileTab?: boolean;
 }
@@ -22,6 +23,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/mitglieder", label: "Mitglieder", icon: "Users" },
   { href: "/statistik", label: "Rangliste", icon: "Trophy" },
   { href: "/strafen", label: "Strafen", icon: "Gavel" },
+  { href: "/beitraege", label: "Beiträge", icon: "Wallet", permission: ["dues:view-own", "dues:view-all"] },
   { href: "/profil", label: "Profil", icon: "CircleUser" },
   { href: "/verwaltung", label: "Verwaltung", icon: "Settings", permission: "members:manage" },
 ];

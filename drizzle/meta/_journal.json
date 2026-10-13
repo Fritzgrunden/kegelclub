@@ -15,6 +15,13 @@
       "when": 1791374554932,
       "tag": "0001_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791909973037,
+      "tag": "0002_roles_dues",
+      "breakpoints": true
     }
   ]
 }

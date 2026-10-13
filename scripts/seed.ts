@@ -13,6 +13,8 @@ import { saveGame } from "../src/server/services/games";
 import { createGameSession, saveScores } from "../src/server/services/results";
 import { createPenalty, savePenaltyType, setPenaltyPaid } from "../src/server/services/penalties";
 import { updateSettings } from "../src/server/services/settings";
+import { loadPermissions } from "../src/server/services/roles";
+import type { Permission } from "../src/lib/permissions";
 import { addDaysYmd, toYmd } from "../src/lib/dates";
 import { DEFAULT_GAMES } from "./data/games";
 
@@ -51,13 +53,13 @@ async function main() {
   }
   if (reset) {
     await db.execute(sql`
-      truncate table penalties, penalty_types, game_results, game_sessions, game_rules, games, event_participations,
+      truncate table dues, penalties, penalty_types, game_results, game_sessions, game_rules, games, event_participations,
       events, event_series, password_reset_tokens, sessions, rate_limits, user_roles, profiles, images, users, settings cascade`);
   }
 
   console.log("→ Mitglieder");
   const hash = await hashPassword(password);
-  const people: { id: string; roles: Role[]; status: UserStatus; email: string }[] = [];
+  const people: { id: string; permissions: Permission[]; status: UserStatus; email: string }[] = [];
   for (const m of MEMBERS) {
     const email = `${m.first.toLowerCase().replace("ü", "ue")}@demo.kegelclub.test`;
     const status = m.status ?? "AKTIV";
@@ -65,7 +67,7 @@ async function main() {
     await db.insert(profiles).values({ userId: u.id, firstName: m.first, lastName: m.last, nickname: m.nick ?? null, birthday: m.birthday });
     const roles: Role[] = ["MITGLIED", ...m.roles];
     await db.insert(userRoles).values(roles.map((role) => ({ userId: u.id, role })));
-    people.push({ id: u.id, roles, status, email });
+    people.push({ id: u.id, permissions: await loadPermissions(u.id), status, email });
   }
   const admin = people[0];
   const kassenwart = people[1];

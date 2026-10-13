@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Cake } from "lucide-react";
-import { ROLE_LABELS } from "@/lib/permissions";
+import { MEMBER_ROLE } from "@/lib/permissions";
 import { formatYmd } from "@/lib/dates";
 import { requireUser } from "@/server/auth/session";
 import { listMembers } from "@/server/services/users";
@@ -29,7 +29,7 @@ export default async function MembersPage() {
                 <p className="mt-3 font-display text-lg font-bold leading-tight">{m.nickname || m.firstName}</p>
                 <p className="text-sm text-kreide-dim">{m.firstName} {m.lastName}</p>
                 <div className="mt-2 flex flex-wrap justify-center gap-1">
-                  {m.roles.filter((r) => r !== "MITGLIED").map((r) => <Badge key={r} tone="messing">{ROLE_LABELS[r]}</Badge>)}
+                  {m.roles.filter((r) => r.key !== MEMBER_ROLE).map((r) => <Badge key={r.key} tone="messing">{r.name}</Badge>)}
                   {m.status === "PASSIV" && <Badge>Passiv</Badge>}
                 </div>
                 {m.birthday && (

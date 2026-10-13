@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ChevronRight, Gavel, CircleUser, PartyPopper, Settings, Trophy, Users, LogOut } from "lucide-react";
+import { ChevronRight, Gavel, CircleUser, PartyPopper, Settings, Trophy, Users, LogOut, Wallet } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { requireUser } from "@/server/auth/session";
 import { logoutAction } from "@/server/actions/auth";
@@ -15,6 +15,9 @@ export default async function MorePage() {
     { href: "/mitglieder", label: "Mitglieder", text: "Alle aus dem Club", Icon: Users },
     { href: "/statistik", label: "Rangliste & Statistik", text: "Wer liegt vorn?", Icon: Trophy },
     { href: "/strafen", label: hasPermission(user, "penalties:manage") ? "Strafen verwalten" : "Meine Strafen", text: "Strafkatalog und Einträge", Icon: Gavel },
+    ...(hasPermission(user, "dues:view-own") || hasPermission(user, "dues:view-all")
+      ? [{ href: "/beitraege", label: hasPermission(user, "dues:manage") ? "Beiträge verwalten" : "Meine Beiträge", text: "Monatsbeiträge", Icon: Wallet }]
+      : []),
     { href: "/profil", label: "Mein Profil", text: "Daten, Foto, Passwort", Icon: CircleUser },
     ...(hasPermission(user, "members:manage") ? [{ href: "/verwaltung", label: "Verwaltung", text: "Mitglieder, Rollen, Einstellungen", Icon: Settings }] : []),
   ];

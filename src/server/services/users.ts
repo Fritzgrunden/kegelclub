@@ -1,20 +1,26 @@
 import "server-only";
 import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
-import { profiles, userRoles, users, type Role, type UserStatus } from "@/server/db/schema";
+import { profiles, roles as rolesTable, userRoles, users, type Role, type UserStatus } from "@/server/db/schema";
 import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { hasPermission } from "@/lib/permissions";
+import { ADMIN_ROLE, hasPermission, MEMBER_ROLE } from "@/lib/permissions";
 import { displayName } from "@/lib/format";
 import { emailSchema, profileSchema, zodFieldErrors } from "@/lib/validation";
 import { assertCan } from "@/server/auth/guard";
 import type { Actor } from "@/server/auth/types";
 import { deleteImage, storeImage } from "./images";
 
+export interface MemberRole {
+  key: Role;
+  name: string;
+}
+
 export interface Member {
   id: string;
   email: string;
   status: UserStatus;
-  roles: Role[];
+  /** Sortiert wie in der Rollenverwaltung; MITGLIED steht vorn. */
+  roles: MemberRole[];
   firstName: string;
   lastName: string;
   nickname: string | null;
@@ -40,15 +46,17 @@ const memberColumns = {
 
 async function attachRoles<T extends { id: string; firstName: string; lastName: string; nickname: string | null }>(
   rows: T[],
-): Promise<(T & { roles: Role[]; displayName: string })[]> {
+): Promise<(T & { roles: MemberRole[]; displayName: string })[]> {
   if (rows.length === 0) return [];
   const roleRows = await db
-    .select()
+    .select({ userId: userRoles.userId, key: rolesTable.key, name: rolesTable.name })
     .from(userRoles)
-    .where(inArray(userRoles.userId, rows.map((r) => r.id)));
+    .innerJoin(rolesTable, eq(rolesTable.key, userRoles.role))
+    .where(inArray(userRoles.userId, rows.map((r) => r.id)))
+    .orderBy(asc(rolesTable.sortOrder), asc(rolesTable.name));
   return rows.map((r) => ({
     ...r,
-    roles: roleRows.filter((x) => x.userId === r.id).map((x) => x.role),
+    roles: roleRows.filter((x) => x.userId === r.id).map(({ key, name }) => ({ key, name })),
     displayName: displayName(r),
   }));
 }
@@ -101,12 +109,14 @@ export async function updateEmail(actor: Actor, userId: string, rawEmail: string
   await db.update(users).set({ email: parsed.data, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
+export const hasRole = (m: Pick<Member, "roles">, key: Role) => m.roles.some((r) => r.key === key);
+
 async function countActiveAdmins(excludeUserId?: string) {
   const rows = await db
     .select({ userId: userRoles.userId })
     .from(userRoles)
     .innerJoin(users, eq(users.id, userRoles.userId))
-    .where(and(eq(userRoles.role, "ADMIN"), inArray(users.status, ["AKTIV", "PASSIV"])));
+    .where(and(eq(userRoles.role, ADMIN_ROLE), inArray(users.status, ["AKTIV", "PASSIV"])));
   return rows.filter((r) => r.userId !== excludeUserId).length;
 }
 
@@ -117,7 +127,7 @@ export async function setUserStatus(actor: Actor, userId: string, status: UserSt
   }
   const target = await getMember(userId);
   if (!target) throw new NotFoundError("Mitglied nicht gefunden.");
-  if (target.roles.includes("ADMIN") && (status === "INAKTIV" || status === "AUSSTEHEND") && (await countActiveAdmins(userId)) === 0) {
+  if (hasRole(target, ADMIN_ROLE) && (status === "INAKTIV" || status === "AUSSTEHEND") && (await countActiveAdmins(userId)) === 0) {
     throw new AppError("Der letzte Admin kann nicht gesperrt werden.");
   }
   await db.update(users).set({ status, updatedAt: new Date() }).where(eq(users.id, userId));
@@ -125,10 +135,11 @@ export async function setUserStatus(actor: Actor, userId: string, status: UserSt
 
 export async function setUserRoles(actor: Actor, userId: string, roles: Role[]) {
   assertCan(actor, "roles:assign");
-  const next = Array.from(new Set<Role>(["MITGLIED", ...roles]));
+  const known = new Set((await db.select({ key: rolesTable.key }).from(rolesTable)).map((r) => r.key));
+  const next = Array.from(new Set<Role>([MEMBER_ROLE, ...roles])).filter((r) => known.has(r));
   const target = await getMember(userId);
   if (!target) throw new NotFoundError("Mitglied nicht gefunden.");
-  if (target.roles.includes("ADMIN") && !next.includes("ADMIN") && (await countActiveAdmins(userId)) === 0) {
+  if (hasRole(target, ADMIN_ROLE) && !next.includes(ADMIN_ROLE) && (await countActiveAdmins(userId)) === 0) {
     throw new AppError("Es muss mindestens ein Admin übrig bleiben.");
   }
   await db.transaction(async (tx) => {

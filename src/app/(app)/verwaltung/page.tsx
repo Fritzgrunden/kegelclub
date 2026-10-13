@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ChevronRight, Dices } from "lucide-react";
-import { hasPermission, ROLE_LABELS } from "@/lib/permissions";
+import { ChevronRight, Dices, ShieldCheck } from "lucide-react";
+import { hasPermission, MEMBER_ROLE } from "@/lib/permissions";
 import { USER_STATUS_LABELS } from "@/lib/format";
 import { requirePermission } from "@/server/auth/session";
 import { listMembers } from "@/server/services/users";
@@ -62,7 +62,7 @@ export default async function AdminPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{m.displayName}</p>
                       <div className="mt-0.5 flex flex-wrap gap-1">
-                        {m.roles.filter((r) => r !== "MITGLIED").map((r) => <Badge key={r} tone="messing">{ROLE_LABELS[r]}</Badge>)}
+                        {m.roles.filter((r) => r.key !== MEMBER_ROLE).map((r) => <Badge key={r.key} tone="messing">{r.name}</Badge>)}
                         {m.status !== "AKTIV" && <Badge tone={m.status === "INAKTIV" ? "absage" : "neutral"}>{USER_STATUS_LABELS[m.status]}</Badge>}
                       </div>
                     </div>
@@ -84,6 +84,9 @@ export default async function AdminPage() {
               <SubmitButton>Einstellungen speichern</SubmitButton>
             </ActionForm>
           </Card>
+          {hasPermission(user, "roles:manage") && (
+            <LinkButton href="/verwaltung/rollen" variant="secondary" size="lg"><ShieldCheck size={20} aria-hidden /> Rollen & Rechte</LinkButton>
+          )}
           {hasPermission(user, "games:manage") && (
             <LinkButton href="/spiele" variant="secondary" size="lg"><Dices size={20} aria-hidden /> Kegelspiele verwalten</LinkButton>
           )}

@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db";
-import { penalties, penaltyTypes, profiles, userRoles, users } from "@/server/db/schema";
+import { penalties, penaltyTypes, profiles, roles, userRoles, users } from "@/server/db/schema";
 import { formatEuro, fullName } from "@/lib/format";
 import { sendMail } from "./mail";
 import { sendPushToUsers } from "./push";
@@ -11,12 +11,14 @@ import { sendPushToUsers } from "./push";
  * damit sie gefahrlos nach einer erfolgreichen Aktion (z. B. per `after()`) laufen können.
  */
 
+/** Alle, die Mitglieder freischalten dürfen – egal über welche Rolle. */
 async function activeAdmins() {
   return db
-    .select({ id: users.id, email: users.email })
+    .selectDistinct({ id: users.id, email: users.email })
     .from(users)
-    .innerJoin(userRoles, and(eq(userRoles.userId, users.id), eq(userRoles.role, "ADMIN")))
-    .where(inArray(users.status, ["AKTIV", "PASSIV"]));
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .innerJoin(roles, eq(roles.key, userRoles.role))
+    .where(and(inArray(users.status, ["AKTIV", "PASSIV"]), sql`'members:manage' = any(${roles.permissions})`));
 }
 
 /** Admins erfahren per Push (und E-Mail, falls konfiguriert), dass jemand auf Freischaltung wartet. */

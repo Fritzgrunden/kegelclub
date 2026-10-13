@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Cake, Gavel, Plus, Trophy, UserPlus } from "lucide-react";
+import { Cake, Gavel, Plus, Trophy, UserPlus, Wallet } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { formatEuro, displayName } from "@/lib/format";
 import { formatDate, formatYmd, nextBirthday, toYmd, addDaysYmd } from "@/lib/dates";
@@ -14,6 +14,7 @@ import {
 } from "@/server/services/events";
 import { getLeaderboard, getRecentResults } from "@/server/services/stats";
 import { getOpenPenaltySummary } from "@/server/services/penalties";
+import { getOpenDuesSummary } from "@/server/services/dues";
 import { countPendingRegistrations, listMembers } from "@/server/services/users";
 import { NextEveningBoard } from "@/components/events/next-evening-board";
 import { EventCard } from "@/components/events/event-card";
@@ -31,7 +32,8 @@ export default async function DashboardPage() {
   const isKassenwart = hasPermission(user, "penalties:manage");
   const year = new Date().getFullYear();
 
-  const [nextEvening, upcomingEvents, board, recent, penalties, pending, members] = await Promise.all([
+  const showDues = hasPermission(user, "dues:view-own");
+  const [nextEvening, upcomingEvents, board, recent, penalties, pending, members, dues] = await Promise.all([
     getNextEvent("KEGELABEND"),
     listEvents({ kind: "EVENT", from: upcomingThreshold(), limit: 3, includeCancelled: false }),
     getLeaderboard(year),
@@ -39,6 +41,7 @@ export default async function DashboardPage() {
     getOpenPenaltySummary(user.id),
     isAdmin ? countPendingRegistrations() : Promise.resolve(0),
     listMembers(),
+    showDues ? getOpenDuesSummary(user.id) : Promise.resolve({ count: 0, totalCents: 0 }),
   ]);
 
   const eventIds = [nextEvening?.id, ...upcomingEvents.map((e) => e.id)].filter(Boolean) as string[];
@@ -169,6 +172,18 @@ export default async function DashboardPage() {
               </div>
             </Card>
           </Link>
+
+          {dues.count > 0 && (
+            <Link href="/beitraege" className="block">
+              <Card className="flex items-center gap-4 hover:border-messing/50">
+                <Wallet size={28} className="text-messing" aria-hidden />
+                <div className="flex-1">
+                  <p className="font-display text-lg font-bold">Deine Beiträge</p>
+                  <p className="text-kreide-dim">{dues.count === 1 ? "1 Monat" : `${dues.count} Monate`} offen · {formatEuro(dues.totalCents)}</p>
+                </div>
+              </Card>
+            </Link>
+          )}
 
           {birthdays.length > 0 && (
             <Card>

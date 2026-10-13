@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Cake, Mail, Phone, Settings } from "lucide-react";
-import { hasPermission, ROLE_LABELS } from "@/lib/permissions";
+import { hasPermission, MEMBER_ROLE } from "@/lib/permissions";
 import { formatDate, formatYmd } from "@/lib/dates";
 import { formatEuro } from "@/lib/format";
 import { requireUser } from "@/server/auth/session";
@@ -59,7 +59,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
             {member.nickname && <p className="text-kreide-dim">„{member.nickname}“</p>}
           </div>
           <div className="flex flex-wrap justify-center gap-1.5">
-            {member.roles.map((r) => <Badge key={r} tone={r === "MITGLIED" ? "neutral" : "messing"}>{ROLE_LABELS[r]}</Badge>)}
+            {member.roles.map((r) => <Badge key={r.key} tone={r.key === MEMBER_ROLE ? "neutral" : "messing"}>{r.name}</Badge>)}
           </div>
           <ul className="mt-2 flex w-full flex-col gap-2 text-left text-sm">
             {member.birthday && <li className="flex items-center gap-2"><Cake size={16} className="text-messing" aria-hidden /> {showPrivate ? formatYmd(member.birthday) : formatYmd(member.birthday).slice(0, 6)}</li>}

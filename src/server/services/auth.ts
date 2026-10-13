@@ -4,6 +4,8 @@ import { db } from "@/server/db";
 import { passwordResetTokens, profiles, sessions, userRoles, users, type Role } from "@/server/db/schema";
 import { AppError } from "@/lib/errors";
 import { displayName } from "@/lib/format";
+import { isPermission, MEMBER_ROLE } from "@/lib/permissions";
+import { permissionsSql } from "./roles";
 import { emailSchema, passwordSchema, registerSchema, zodFieldErrors } from "@/lib/validation";
 import { generateToken, getDummyHash, hashPassword, hashToken, verifyPassword } from "@/server/auth/crypto";
 import { consumeRateLimit, resetRateLimit } from "@/server/auth/rate-limit";
@@ -52,7 +54,7 @@ export async function registerUser(raw: unknown, clientKey = "unknown") {
       birthday: input.birthday,
       phone: input.phone,
     });
-    await tx.insert(userRoles).values({ userId: user.id, role: "MITGLIED" });
+    await tx.insert(userRoles).values({ userId: user.id, role: MEMBER_ROLE });
     return user;
   });
 }
@@ -101,7 +103,8 @@ export async function getUserBySessionToken(token: string): Promise<SessionUser 
       avatarImageId: profiles.avatarImageId,
       expiresAt: sessions.expiresAt,
       // Rollen in derselben Abfrage – spart auf jeder Seite einen Datenbank-Roundtrip.
-      roles: sql<Role[]>`coalesce((select array_agg(${userRoles.role}::text) from ${userRoles} where ${userRoles.userId} = ${users.id}), '{}')`,
+      roles: sql<Role[]>`coalesce((select array_agg(${userRoles.role}) from ${userRoles} where ${userRoles.userId} = ${users.id}), '{}')`,
+      permissions: permissionsSql(users.id),
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -122,6 +125,7 @@ export async function getUserBySessionToken(token: string): Promise<SessionUser 
     email: s.email,
     status: s.status,
     roles: s.roles,
+    permissions: s.permissions.filter(isPermission),
     firstName: s.firstName,
     lastName: s.lastName,
     nickname: s.nickname,

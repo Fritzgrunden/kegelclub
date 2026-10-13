@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ROLE_LABELS, ROLES } from "@/lib/permissions";
+import Link from "next/link";
+import { ADMIN_ROLE, hasPermission, MEMBER_ROLE } from "@/lib/permissions";
 import { USER_STATUS_LABELS } from "@/lib/format";
 import type { UserStatus } from "@/server/db/schema";
 import { requirePermission } from "@/server/auth/session";
-import { getMember } from "@/server/services/users";
+import { getMember, hasRole } from "@/server/services/users";
+import { listRoles } from "@/server/services/roles";
 import { setMemberRolesAction, setMemberStatusAction } from "@/server/actions/admin";
 import { AvatarUpload } from "@/components/members/avatar-upload";
 import { ProfileForm } from "@/components/members/profile-form";
@@ -17,12 +19,6 @@ import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { title: "Mitglied verwalten" };
 
-const ROLE_HINTS: Record<string, string> = {
-  MITGLIED: "Basisrechte – haben alle.",
-  KASSENWART: "Strafen vergeben und Strafkatalog pflegen.",
-  ADMIN: "Mitglieder, Termine, Spiele und Einstellungen verwalten.",
-};
-
 const STATUS_ACTIONS: { status: UserStatus; label: string }[] = [
   { status: "AKTIV", label: "Aktiv" },
   { status: "PASSIV", label: "Passiv" },
@@ -32,8 +28,9 @@ const STATUS_ACTIONS: { status: UserStatus; label: string }[] = [
 export default async function AdminMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePermission("members:manage");
   const { id } = await params;
-  const member = await getMember(id);
+  const [member, roles] = await Promise.all([getMember(id), listRoles()]);
   if (!member) notFound();
+  const lockSelfAdmin = actor.id === id && hasRole(member, ADMIN_ROLE);
 
   return (
     <>
@@ -60,24 +57,28 @@ export default async function AdminMemberPage({ params }: { params: Promise<{ id
             </div>
           </Card>
           <Card>
-            <CardTitle>Rollen</CardTitle>
+            <CardTitle
+              action={hasPermission(actor, "roles:manage") ? <Link href="/verwaltung/rollen" className="text-sm text-messing-hell hover:underline">Rollen bearbeiten</Link> : undefined}
+            >
+              Rollen
+            </CardTitle>
             <ActionForm action={setMemberRolesAction} className="flex flex-col gap-2">
               <input type="hidden" name="id" value={id} />
-              {ROLES.map((r) => (
-                <label key={r} className="flex min-h-14 items-center gap-3 rounded-xl border border-eiche px-3">
+              {roles.map((r) => (
+                <label key={r.key} className="flex min-h-14 items-center gap-3 rounded-xl border border-eiche px-3 py-2">
                   <input
                     type="checkbox"
                     name="roles"
-                    value={r}
-                    defaultChecked={member.roles.includes(r)}
-                    disabled={r === "MITGLIED" || (r === "ADMIN" && actor.id === id)}
-                    className="size-5 accent-[var(--color-messing)]"
+                    value={r.key}
+                    defaultChecked={r.key === MEMBER_ROLE || hasRole(member, r.key)}
+                    disabled={r.key === MEMBER_ROLE || (r.key === ADMIN_ROLE && lockSelfAdmin)}
+                    className="size-5 shrink-0 accent-[var(--color-messing)]"
                   />
-                  <span>
-                    <span className="block font-medium">{ROLE_LABELS[r]}</span>
-                    <span className="block text-xs text-kreide-dim">{ROLE_HINTS[r]}</span>
+                  <span className="min-w-0">
+                    <span className="block font-medium">{r.name}</span>
+                    {r.description && <span className="block text-xs text-kreide-dim">{r.description}</span>}
                   </span>
-                  {r === "ADMIN" && actor.id === id && <input type="hidden" name="roles" value="ADMIN" />}
+                  {r.key === ADMIN_ROLE && lockSelfAdmin && <input type="hidden" name="roles" value={ADMIN_ROLE} />}
                 </label>
               ))}
               <SubmitButton size="md" className="mt-2">Rollen speichern</SubmitButton>

@@ -24,7 +24,6 @@ const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull(
 
 /* ───────────── Enums ───────────── */
 
-export const roleEnum = pgEnum("role", ["MITGLIED", "KASSENWART", "ADMIN"]);
 export const userStatusEnum = pgEnum("user_status", ["AUSSTEHEND", "AKTIV", "PASSIV", "INAKTIV"]);
 export const eventKindEnum = pgEnum("event_kind", ["KEGELABEND", "EVENT"]);
 export const eventTypeEnum = pgEnum("event_type", [
@@ -79,6 +78,23 @@ export const profiles = pgTable("profiles", {
   birthday: date("birthday", { mode: "string" }),
   phone: text("phone"),
   avatarImageId: uuid("avatar_image_id").references(() => images.id, { onDelete: "set null" }),
+  /** Individueller Monatsbeitrag; null = Standardbeitrag des Vereins. */
+  duesCents: integer("dues_cents"),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * Rollen mit frei wählbaren Rechten. MITGLIED und ADMIN sind Systemrollen (nicht löschbar),
+ * weitere Rollen legt der Admin selbst an. Der Schlüssel neuer Rollen ist eine zufällige ID.
+ */
+export const roles = pgTable("roles", {
+  key: text("key").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  permissions: text("permissions").array().notNull().default([]),
+  isSystem: boolean("is_system").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
 
@@ -89,7 +105,9 @@ export const userRoles = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: roleEnum("role").notNull(),
+    role: text("role")
+      .notNull()
+      .references(() => roles.key, { onDelete: "cascade", onUpdate: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.userId, t.role] })],
 );
@@ -306,6 +324,27 @@ export const penalties = pgTable(
   (t) => [index("penalties_user_idx").on(t.userId)],
 );
 
+/* ───────────── Monatsbeiträge ───────────── */
+
+/** Beitrag eines Mitglieds für einen Monat. Betrag wird beim Anlegen festgeschrieben. */
+export const dues = pgTable(
+  "dues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Erster Tag des Monats, z. B. 2026-10-01. */
+    month: date("month", { mode: "string" }).notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("dues_user_month_idx").on(t.userId, t.month), index("dues_month_idx").on(t.month)],
+);
+
 /* ───────────── Einstellungen ───────────── */
 
 export const settings = pgTable("settings", {
@@ -313,7 +352,8 @@ export const settings = pgTable("settings", {
   value: text("value").notNull(),
 });
 
-export type Role = (typeof roleEnum.enumValues)[number];
+/** Schlüssel einer Rolle (MITGLIED, KASSENWART, ADMIN oder ID einer selbst angelegten Rolle). */
+export type Role = string;
 export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 export type EventKind = (typeof eventKindEnum.enumValues)[number];
 export type EventType = (typeof eventTypeEnum.enumValues)[number];

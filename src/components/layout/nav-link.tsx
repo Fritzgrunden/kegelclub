@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, CircleDot, CircleUser, Dices, Ellipsis, Gavel, House, PartyPopper, Settings, Trophy, Users,
+  CalendarDays, CircleDot, CircleUser, Dices, Ellipsis, Gavel, House, PartyPopper, Settings, Trophy, Users, Wallet,
 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import type { IconName } from "./nav-items";
 
-const ICONS = { House, CircleDot, CalendarDays, Dices, Ellipsis, PartyPopper, Users, Trophy, Gavel, CircleUser, Settings };
+const ICONS = { House, CircleDot, CalendarDays, Dices, Ellipsis, PartyPopper, Users, Trophy, Gavel, Wallet, CircleUser, Settings };
 
 const ACTIVE_ALIASES: Record<string, string[]> = {
   "/kegelabende": ["/kegelabende", "/termine", "/spielrunden"],
-  "/mehr": ["/mehr", "/events", "/mitglieder", "/statistik", "/strafen", "/profil", "/verwaltung"],
+  "/mehr": ["/mehr", "/events", "/mitglieder", "/statistik", "/strafen", "/beitraege", "/profil", "/verwaltung"],
 };
 
 function isActive(pathname: string, href: string) {

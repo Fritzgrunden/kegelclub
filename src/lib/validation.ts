@@ -80,6 +80,16 @@ export const penaltyTypeSchema = z.object({
   active: z.boolean().default(true),
 });
 
+export const roleSchema = z.object({
+  name: trimmed(40).min(1, "Bitte einen Namen angeben."),
+  description: optionalText(200),
+  permissions: z.array(z.string()).default([]),
+});
+
+const centsField = z.number().int().min(0, "Der Betrag darf nicht negativ sein.").max(100000, "Der Betrag ist zu hoch.");
+export const duesAmountSchema = centsField;
+export const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Ungültiger Monat.");
+
 export const penaltySchema = z
   .object({
     userId: z.string().uuid("Bitte ein Mitglied auswählen."),
