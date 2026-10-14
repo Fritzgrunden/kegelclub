@@ -75,13 +75,8 @@ export async function createPenalty(actor: Actor, raw: unknown) {
   return row.id;
 }
 
-/**
- * Schnellerfassung an der Bahn: nur Mitglied + Strafart. Datum ist heute, der Termin wird automatisch
- * zugeordnet, wenn heute einer stattfindet (Kegelabend bevorzugt).
- */
-export async function createQuickPenalty(actor: Actor, userId: string, penaltyTypeId: string) {
-  assertCan(actor, "penalties:manage", KASSENWART_ONLY);
-  const today = toYmd(new Date());
+/** Heutiger Termin (Kegelabend bevorzugt), abgesagte zählen nicht. */
+async function todaysEventId(today: string) {
   const todays = await db
     .select({ id: events.id, kind: events.kind })
     .from(events)
@@ -94,7 +89,28 @@ export async function createQuickPenalty(actor: Actor, userId: string, penaltyTy
     )
     .orderBy(asc(events.startsAt));
   const event = todays.find((e) => e.kind === "KEGELABEND") ?? todays[0];
-  return createPenalty(actor, { userId, penaltyTypeId, amountCents: null, date: today, eventId: event?.id ?? null });
+  return event?.id ?? null;
+}
+
+/**
+ * Schnellerfassung an der Bahn: nur Mitglied + Strafart. Datum ist heute, der Termin wird automatisch
+ * zugeordnet, wenn heute einer stattfindet (Kegelabend bevorzugt).
+ */
+export async function createQuickPenalty(actor: Actor, userId: string, penaltyTypeId: string) {
+  assertCan(actor, "penalties:manage", KASSENWART_ONLY);
+  const today = toYmd(new Date());
+  return createPenalty(actor, { userId, penaltyTypeId, amountCents: null, date: today, eventId: await todaysEventId(today) });
+}
+
+/**
+ * Schnellerfassung mit frei gewähltem Titel und Betrag. Mit `saveToCatalog` wird daraus zugleich
+ * eine neue Strafart, die beim nächsten Mal direkt zur Auswahl steht.
+ */
+export async function createQuickCustomPenalty(actor: Actor, userId: string, label: string, amountCents: number, saveToCatalog = false) {
+  assertCan(actor, "penalties:manage", KASSENWART_ONLY);
+  if (saveToCatalog) return createQuickPenalty(actor, userId, await savePenaltyType(actor, null, { name: label, amountCents, active: true }));
+  const today = toYmd(new Date());
+  return createPenalty(actor, { userId, penaltyTypeId: null, customLabel: label, amountCents, date: today, eventId: await todaysEventId(today) });
 }
 
 export async function updatePenalty(actor: Actor, id: string, raw: unknown) {

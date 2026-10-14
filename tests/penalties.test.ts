@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   createPenalty,
+  createQuickCustomPenalty,
   createQuickPenalty,
   deletePenalty,
   deletePenaltyType,
+  listPenaltyTypes,
   getOpenPenaltySummary,
   listPenalties,
   markAllPaidForMember,
@@ -124,6 +126,22 @@ describe("Schnellerfassung & Kassieren", () => {
     const { admin, peter, typeId } = await setup();
     await expect(createQuickPenalty(admin, peter.id, typeId)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(createQuickPenalty(peter, peter.id, typeId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("Schnellerfassung mit eigenem Titel und Betrag – optional gleich in den Katalog", async () => {
+    const { kassenwart, admin, peter } = await setup();
+    await createQuickCustomPenalty(kassenwart, peter.id, "Bier verschüttet", 150);
+    let [p] = await listPenalties(kassenwart, { userId: peter.id });
+    expect(p).toMatchObject({ label: "Bier verschüttet", amountCents: 150, date: toYmd(new Date()) });
+    expect((await listPenaltyTypes()).map((t) => t.name)).not.toContain("Bier verschüttet");
+
+    await createQuickCustomPenalty(kassenwart, peter.id, "Glas umgeworfen", 300, true);
+    [p] = await listPenalties(kassenwart, { userId: peter.id });
+    expect(p).toMatchObject({ label: "Glas umgeworfen", amountCents: 300 });
+    expect((await listPenaltyTypes()).find((t) => t.name === "Glas umgeworfen")?.amountCents).toBe(300);
+
+    await expect(createQuickCustomPenalty(kassenwart, peter.id, "  ", 100)).rejects.toMatchObject({ code: "VALIDATION" });
+    await expect(createQuickCustomPenalty(admin, peter.id, "X", 100)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("„Alles bezahlt“ markiert nur die offenen Strafen dieses Mitglieds", async () => {

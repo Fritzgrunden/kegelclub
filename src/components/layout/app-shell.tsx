@@ -42,11 +42,11 @@ export function AppShell({ user, clubName, children }: { user: SessionUser; club
       <div className="min-w-0">
         {/* Mobile Kopfzeile */}
         <header className="holzleiste sticky top-0 z-20 flex items-center justify-between border-b border-eiche/70 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] lg:hidden">
-          <Link href="/" className="flex min-h-11 items-center gap-2.5">
-            <PinDiamond className="size-8" />
-            <span className="font-display text-[17px] font-bold">{clubName}</span>
+          <Link href="/" className="flex min-h-11 min-w-0 items-center gap-2.5">
+            <PinDiamond className="size-8 shrink-0" />
+            <span className="truncate font-display text-[17px] font-bold">{clubName}</span>
           </Link>
-          <Link href="/profil" aria-label="Mein Profil" className="flex min-h-11 items-center">
+          <Link href="/profil" aria-label="Mein Profil" className="ml-3 flex min-h-11 shrink-0 items-center">
             <Avatar person={user} size="sm" />
           </Link>
         </header>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ChevronDown, Plus } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { centsToInput, formatEuro } from "@/lib/format";
 import { requireUser } from "@/server/auth/session";
@@ -8,7 +9,6 @@ import { ActionForm } from "@/components/ui/action-form";
 import { ActionButton } from "@/components/ui/action-button";
 import { Field, Input, SubmitButton } from "@/components/ui/fields";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -36,7 +36,7 @@ export default async function CatalogPage() {
 
   return (
     <>
-      <PageHeader title="Strafkatalog" subtitle={manage ? "Wird vom Kassenwart gepflegt." : undefined} back="/strafen" />
+      <PageHeader title={manage ? "Strafarten & Beträge" : "Strafkatalog"} subtitle={manage ? "Titel und Höhe der Strafen festlegen. Antippen zum Ändern." : undefined} back="/strafen" />
       {!manage ? (
         types.length === 0 ? <EmptyState title="Der Strafkatalog ist noch leer." /> : (
           <section className="tafel rounded-md p-5">
@@ -51,17 +51,30 @@ export default async function CatalogPage() {
           </section>
         )
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <div className="flex flex-col gap-3">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3">
+            <details className="group rounded-2xl border border-messing/50 bg-theke" open={types.length === 0}>
+              <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 font-semibold text-messing-hell [&::-webkit-details-marker]:hidden">
+                <Plus size={20} aria-hidden /> Neue Strafart
+              </summary>
+              <div className="border-t border-eiche/60 p-4">
+                <ActionForm action={savePenaltyTypeAction} resetOnSuccess className="flex flex-col gap-3">
+                  <TypeFields />
+                  <SubmitButton className="w-full">Hinzufügen</SubmitButton>
+                </ActionForm>
+              </div>
+            </details>
             {types.length === 0 && <EmptyState title="Noch keine Strafarten angelegt." />}
             {types.map((t) => (
               <details key={t.id} className="group rounded-2xl border border-eiche/70 bg-theke">
-                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4">
+                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 [&::-webkit-details-marker]:hidden">
                   <span>
                     <span className="block font-semibold">{t.name}</span>
                     {!t.active && <Badge>inaktiv</Badge>}
                   </span>
-                  <span className="font-display text-xl font-bold tabular-nums">{formatEuro(t.amountCents)}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-display text-xl font-bold tabular-nums">{formatEuro(t.amountCents)}</span>
+                    <ChevronDown size={18} className="text-kreide-dim transition-transform group-open:rotate-180" aria-hidden />
+                  </span>
                 </summary>
                 <div className="border-t border-eiche/60 p-4">
                   <ActionForm action={savePenaltyTypeAction} className="flex flex-col gap-3">
@@ -79,14 +92,6 @@ export default async function CatalogPage() {
                 </div>
               </details>
             ))}
-          </div>
-          <Card className="h-fit">
-            <CardTitle>Neue Strafart</CardTitle>
-            <ActionForm action={savePenaltyTypeAction} resetOnSuccess className="flex flex-col gap-3">
-              <TypeFields />
-              <SubmitButton className="w-full">Hinzufügen</SubmitButton>
-            </ActionForm>
-          </Card>
         </div>
       )}
     </>

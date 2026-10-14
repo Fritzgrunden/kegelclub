@@ -8,6 +8,7 @@ import { AppError } from "@/lib/errors";
 import { parseEuroToCents } from "@/lib/format";
 import {
   createPenalty,
+  createQuickCustomPenalty,
   createQuickPenalty,
   deletePenalty,
   deletePenaltyType,
@@ -64,7 +65,10 @@ export async function quickPenaltyAction(fd: FormData): Promise<ActionResult & {
   let penaltyId: string | undefined;
   const result = await runAction(async () => {
     const actor = await requireActor();
-    const id = await createQuickPenalty(actor, str(fd, "userId"), str(fd, "penaltyTypeId"));
+    const typeId = optStr(fd, "penaltyTypeId");
+    const id = typeId
+      ? await createQuickPenalty(actor, str(fd, "userId"), typeId)
+      : await createQuickCustomPenalty(actor, str(fd, "userId"), str(fd, "customLabel"), euroField(fd, "amount", true)!, fd.get("saveToCatalog") === "on");
     penaltyId = id;
     // Erst nach Ablauf der Rückgängig-Frist benachrichtigen; wurde die Strafe gelöscht, geht nichts raus.
     after(async () => {

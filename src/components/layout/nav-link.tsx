@@ -12,7 +12,7 @@ const ICONS = { House, CircleDot, CalendarDays, Dices, Ellipsis, PartyPopper, Us
 
 const ACTIVE_ALIASES: Record<string, string[]> = {
   "/kegelabende": ["/kegelabende", "/termine", "/spielrunden"],
-  "/mehr": ["/mehr", "/events", "/mitglieder", "/statistik", "/strafen", "/beitraege", "/profil", "/verwaltung"],
+  "/mehr": ["/mehr", "/kalender", "/events", "/mitglieder", "/statistik", "/beitraege", "/profil", "/verwaltung"],
 };
 
 function isActive(pathname: string, href: string) {

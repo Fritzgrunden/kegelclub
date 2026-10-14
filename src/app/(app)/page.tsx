@@ -72,20 +72,20 @@ export default async function DashboardPage() {
       )}
 
       {(isAdmin || isKassenwart) && (
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+        <div className="flex gap-2">
           {isAdmin && (
-            <LinkButton href="/termine/neu?art=KEGELABEND" variant="secondary" className="shrink-0">
-              <Plus size={18} aria-hidden /> Kegelabend
+            <LinkButton href="/termine/neu?art=KEGELABEND" variant="secondary" className="min-h-16 min-w-0 flex-1 flex-col gap-1 px-1 text-sm">
+              <Plus size={20} className="shrink-0" aria-hidden /><span className="truncate">Kegelabend</span>
             </LinkButton>
           )}
           {isAdmin && (
-            <LinkButton href="/termine/neu?art=EVENT" variant="secondary" className="shrink-0">
-              <Plus size={18} aria-hidden /> Event
+            <LinkButton href="/termine/neu?art=EVENT" variant="secondary" className="min-h-16 min-w-0 flex-1 flex-col gap-1 px-1 text-sm">
+              <Plus size={20} className="shrink-0" aria-hidden /><span className="truncate">Event</span>
             </LinkButton>
           )}
           {isKassenwart && (
-            <LinkButton href="/strafen" variant="secondary" className="shrink-0">
-              <Gavel size={18} aria-hidden /> Strafe eintragen
+            <LinkButton href="/strafen" variant="secondary" className="min-h-16 min-w-0 flex-1 flex-col gap-1 px-1 text-sm">
+              <Gavel size={20} className="shrink-0" aria-hidden /><span className="truncate">Strafe</span>
             </LinkButton>
           )}
         </div>

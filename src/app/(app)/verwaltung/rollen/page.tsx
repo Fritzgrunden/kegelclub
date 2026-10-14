@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Lock } from "lucide-react";
+import { ChevronDown, Lock, Plus } from "lucide-react";
 import {
   ADMIN_ROLE,
   LOCKED_ADMIN_PERMISSIONS,
@@ -16,7 +16,6 @@ import { ActionForm } from "@/components/ui/action-form";
 import { ActionButton } from "@/components/ui/action-button";
 import { Field, Input, SubmitButton } from "@/components/ui/fields";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { title: "Rollen & Rechte" };
@@ -57,18 +56,33 @@ export default async function RolesPage() {
   return (
     <>
       <PageHeader title="Rollen & Rechte" subtitle="Lege fest, wer was darf." back="/verwaltung" />
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-        <div className="flex flex-col gap-3">
+      <div className="mx-auto flex max-w-2xl flex-col gap-3">
+          <details className="group rounded-2xl border border-messing/50 bg-theke">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 font-semibold text-messing-hell [&::-webkit-details-marker]:hidden">
+              <Plus size={20} aria-hidden /> Neue Rolle
+            </summary>
+            <div className="border-t border-eiche/60 p-4">
+              <p className="mb-3 text-sm text-kreide-dim">
+                Danach unter Verwaltung → Mitglied der Person zuweisen. Achtung: Wer „Rollen anlegen und Rechte festlegen“ hat, kann sich selbst jedes Recht geben.
+              </p>
+              <ActionForm action={saveRoleAction} resetOnSuccess className="flex flex-col gap-3">
+                <RoleFields />
+                <SubmitButton className="w-full">Rolle anlegen</SubmitButton>
+              </ActionForm>
+            </div>
+          </details>
           {roles.map((r) => (
             <details key={r.key} className="group rounded-2xl border border-eiche/70 bg-theke">
-              <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2">
+              <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 [&::-webkit-details-marker]:hidden">
                 <span className="min-w-0">
                   <span className="block font-semibold">{r.name}</span>
                   {r.description && <span className="block text-sm text-kreide-dim">{r.description}</span>}
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {r.key === MEMBER_ROLE ? <Badge>alle</Badge> : <Badge tone="messing">{r.memberCount === 1 ? "1 Person" : `${r.memberCount} Personen`}</Badge>}
-                  <span className="text-xs text-kreide-dim">{r.permissions.length} Rechte</span>
+                  <span className="flex items-center gap-1 text-xs text-kreide-dim">
+                    {r.permissions.length} Rechte <ChevronDown size={14} className="transition-transform group-open:rotate-180" aria-hidden />
+                  </span>
                 </span>
               </summary>
               <div className="border-t border-eiche/60 p-4">
@@ -99,17 +113,6 @@ export default async function RolesPage() {
               </div>
             </details>
           ))}
-        </div>
-        <Card className="h-fit">
-          <CardTitle>Neue Rolle</CardTitle>
-          <p className="mb-3 text-sm text-kreide-dim">
-            Danach unter Verwaltung → Mitglied der Person zuweisen. Achtung: Wer „Rollen anlegen und Rechte festlegen“ hat, kann sich selbst jedes Recht geben.
-          </p>
-          <ActionForm action={saveRoleAction} resetOnSuccess className="flex flex-col gap-3">
-            <RoleFields />
-            <SubmitButton className="w-full">Rolle anlegen</SubmitButton>
-          </ActionForm>
-        </Card>
       </div>
     </>
   );

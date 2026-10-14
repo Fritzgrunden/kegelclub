@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ChevronRight, Gavel, CircleUser, PartyPopper, Settings, Trophy, Users, LogOut, Wallet } from "lucide-react";
+import { CalendarDays, ChevronRight, CircleUser, PartyPopper, Settings, Trophy, Users, LogOut, Wallet } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { requireUser } from "@/server/auth/session";
 import { logoutAction } from "@/server/actions/auth";
@@ -11,10 +11,10 @@ export const metadata: Metadata = { title: "Mehr" };
 export default async function MorePage() {
   const user = await requireUser();
   const links = [
+    { href: "/kalender", label: "Kalender", text: "Alle Termine im Monatsüberblick", Icon: CalendarDays },
     { href: "/events", label: "Events", text: "Kegeltour, Feiern & Ausflüge", Icon: PartyPopper },
     { href: "/mitglieder", label: "Mitglieder", text: "Alle aus dem Club", Icon: Users },
     { href: "/statistik", label: "Rangliste & Statistik", text: "Wer liegt vorn?", Icon: Trophy },
-    { href: "/strafen", label: hasPermission(user, "penalties:manage") ? "Strafen verwalten" : "Meine Strafen", text: "Strafkatalog und Einträge", Icon: Gavel },
     ...(hasPermission(user, "dues:view-own") || hasPermission(user, "dues:view-all")
       ? [{ href: "/beitraege", label: hasPermission(user, "dues:manage") ? "Beiträge verwalten" : "Meine Beiträge", text: "Monatsbeiträge", Icon: Wallet }]
       : []),

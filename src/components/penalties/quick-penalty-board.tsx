@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { CircleCheck, PenLine, Undo2, X } from "lucide-react";
+import { CircleCheck, PenLine, Plus, Undo2, X } from "lucide-react";
 import { deletePenaltyAction, quickPenaltyAction } from "@/server/actions/penalties";
 import { Avatar } from "@/components/ui/avatar";
-import { Spinner } from "@/components/ui/fields";
+import { inputClass, Spinner } from "@/components/ui/fields";
+import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import { formatEuro } from "@/lib/format";
+import { formatEuro, parseEuroToCents } from "@/lib/format";
 
 interface Member {
   id: string;
@@ -32,9 +33,12 @@ interface Toast {
 /** Muss zur Rückgängig-Frist in `quickPenaltyAction` passen. */
 const UNDO_MS = 10_000;
 
-/** Strafe in zwei Taps: Mitglied antippen → Strafart antippen. */
-export function QuickPenaltyBoard({ members, types }: { members: Member[]; types: PenaltyType[] }) {
+/** Strafe in zwei Taps: Mitglied antippen → Strafart antippen (oder eigenen Titel und Betrag eingeben). */
+export function QuickPenaltyBoard({ members, types, canEditCatalog }: { members: Member[]; types: PenaltyType[]; canEditCatalog: boolean }) {
   const [selected, setSelected] = useState<Member | null>(null);
+  const [customLabel, setCustomLabel] = useState("");
+  const [customAmount, setCustomAmount] = useState("");
+  const [saveToCatalog, setSaveToCatalog] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -49,26 +53,39 @@ export function QuickPenaltyBoard({ members, types }: { members: Member[]; types
   const open = (m: Member) => {
     setSelected(m);
     setError(null);
+    setCustomLabel("");
+    setCustomAmount("");
+    setSaveToCatalog(false);
     dialog.current?.showModal();
   };
 
   const close = () => dialog.current?.close();
 
-  const give = (type: PenaltyType) => {
+  const submit = (fields: Record<string, string>, label: string, amountCents: number) => {
     if (!selected) return;
     const member = selected;
     startTransition(async () => {
       const fd = new FormData();
       fd.set("userId", member.id);
-      fd.set("penaltyTypeId", type.id);
+      for (const [k, v] of Object.entries(fields)) fd.set(k, v);
       const res = await quickPenaltyAction(fd);
       if (!res.ok || !res.penaltyId) {
         setError(res.message ?? "Eintragen fehlgeschlagen.");
         return;
       }
       close();
-      setToast({ penaltyId: res.penaltyId, text: `${type.name} (${formatEuro(type.amountCents)}) für ${member.displayName}` });
+      setToast({ penaltyId: res.penaltyId, text: `${label} (${formatEuro(amountCents)}) für ${member.displayName}` });
     });
+  };
+
+  const give = (type: PenaltyType) => submit({ penaltyTypeId: type.id }, type.name, type.amountCents);
+
+  const giveCustom = () => {
+    const label = customLabel.trim();
+    const cents = parseEuroToCents(customAmount);
+    if (!label) return setError("Bitte einen Titel für die Strafe eingeben.");
+    if (cents === null) return setError("Bitte einen Betrag wie 1,50 eingeben.");
+    submit({ customLabel: label, amount: customAmount, ...(saveToCatalog ? { saveToCatalog: "on" } : {}) }, label, cents);
   };
 
   const undo = () => {
@@ -120,7 +137,7 @@ export function QuickPenaltyBoard({ members, types }: { members: Member[]; types
               </button>
             </div>
 
-            <div className="grid max-h-[55dvh] gap-2 overflow-y-auto">
+            <div className="grid max-h-[40dvh] gap-2 overflow-y-auto">
               {types.map((t) => (
                 <button
                   key={t.id}
@@ -135,6 +152,45 @@ export function QuickPenaltyBoard({ members, types }: { members: Member[]; types
               ))}
             </div>
 
+            <form
+              className="mt-4 rounded-xl border border-dashed border-eiche p-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                giveCustom();
+              }}
+            >
+              <p className="mb-2 text-sm font-medium text-kreide-dim">Eigene Strafe</p>
+              <div className="grid grid-cols-[1fr_6.5rem] gap-2">
+                <input
+                  value={customLabel}
+                  onChange={(e) => setCustomLabel(e.target.value)}
+                  placeholder="Titel, z. B. Bier verschüttet"
+                  aria-label="Titel der Strafe"
+                  maxLength={100}
+                  enterKeyHint="next"
+                  className={inputClass}
+                />
+                <input
+                  value={customAmount}
+                  onChange={(e) => setCustomAmount(e.target.value)}
+                  placeholder="€ 0,00"
+                  aria-label="Betrag in Euro"
+                  inputMode="decimal"
+                  enterKeyHint="done"
+                  className={inputClass}
+                />
+              </div>
+              {canEditCatalog && (
+                <label className="mt-2 flex min-h-11 items-center gap-3 text-sm">
+                  <input type="checkbox" checked={saveToCatalog} onChange={(e) => setSaveToCatalog(e.target.checked)} className="size-5 accent-[var(--color-messing)]" />
+                  Auch in den Strafkatalog aufnehmen
+                </label>
+              )}
+              <button type="submit" disabled={pending} className={buttonClass("primary", "md", "mt-2 w-full")}>
+                <Plus size={18} aria-hidden /> Eintragen
+              </button>
+            </form>
+
             {pending && (
               <p className="mt-3 flex items-center gap-2 text-sm text-kreide-dim">
                 <Spinner /> Wird eingetragen …
@@ -146,7 +202,7 @@ export function QuickPenaltyBoard({ members, types }: { members: Member[]; types
               href={`/strafen/neu?mitglied=${selected.id}`}
               className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl text-sm text-kreide-dim hover:bg-theke-2 hover:text-kreide"
             >
-              <PenLine size={16} aria-hidden /> Sonstige Strafe, eigener Betrag oder Kommentar …
+              <PenLine size={16} aria-hidden /> Mit anderem Datum, Termin oder Kommentar …
             </Link>
           </div>
         )}
