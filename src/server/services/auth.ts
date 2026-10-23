@@ -177,7 +177,7 @@ export async function requestPasswordReset(rawEmail: string, clientKey = "unknow
  * funktioniert ohne E-Mail-Versand. Nur für Mitglieder, die keine Rechte über die eigenen hinaus haben,
  * sonst könnte man so ein mächtigeres Konto übernehmen.
  */
-export async function createAdminResetLink(actor: Actor, userId: string): Promise<string> {
+export async function createAdminResetLink(actor: Actor, userId: string, origin?: string): Promise<string> {
   assertCan(actor, "members:manage");
   if (actor.id === userId) throw new AppError("Dein eigenes Passwort änderst du im Profil.");
   const user = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { id: true, status: true } });
@@ -189,7 +189,7 @@ export async function createAdminResetLink(actor: Actor, userId: string): Promis
   if (targetPermissions.some((p) => !actor.permissions.includes(p))) {
     throw new ForbiddenError("Dieses Mitglied hat Rechte, die du nicht hast – das kann nur ein Admin.");
   }
-  return resetUrl(await createResetToken(userId, ADMIN_RESET_TOKEN_TTL_MS));
+  return resetUrl(await createResetToken(userId, ADMIN_RESET_TOKEN_TTL_MS), origin);
 }
 
 async function createResetToken(userId: string, ttlMs: number) {
@@ -198,8 +198,8 @@ async function createResetToken(userId: string, ttlMs: number) {
   return token;
 }
 
-function resetUrl(token: string) {
-  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+function resetUrl(token: string, origin?: string) {
+  const appUrl = (origin ?? process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   return `${appUrl}/passwort-zuruecksetzen?token=${token}`;
 }
 

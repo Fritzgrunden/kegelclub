@@ -55,6 +55,15 @@ export async function requireActor(): Promise<SessionUser> {
   return user;
 }
 
+/** Adresse, unter der die App gerade aufgerufen wird – unabhängig von APP_URL. */
+export async function getRequestOrigin() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (!host) return undefined;
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
 /** Schlüssel zur Ratenbegrenzung (IP hinter Proxy/Vercel). */
 export async function getClientKey() {
   const h = await headers();

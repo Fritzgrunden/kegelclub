@@ -7,7 +7,7 @@ import { rejectRegistration, setUserRoles, setUserStatus } from "@/server/servic
 import { deleteRole, saveRole } from "@/server/services/roles";
 import { updateSettings } from "@/server/services/settings";
 import { createAdminResetLink } from "@/server/services/auth";
-import { requireActor } from "@/server/auth/session";
+import { getRequestOrigin, requireActor } from "@/server/auth/session";
 import { optStr, runAction, str } from "./utils";
 
 const STATUSES: UserStatus[] = ["AUSSTEHEND", "AKTIV", "PASSIV", "INAKTIV"];
@@ -35,7 +35,7 @@ export async function setMemberRolesAction(_prev: ActionResult | null, fd: FormD
 export async function createResetLinkAction(fd: FormData): Promise<ActionResult & { url?: string }> {
   let url: string | undefined;
   const result = await runAction(async () => {
-    url = await createAdminResetLink(await requireActor(), str(fd, "id"));
+    url = await createAdminResetLink(await requireActor(), str(fd, "id"), await getRequestOrigin());
   });
   return { ...result, url };
 }
