@@ -6,6 +6,7 @@ import type { UserStatus } from "@/server/db/schema";
 import { rejectRegistration, setUserRoles, setUserStatus } from "@/server/services/users";
 import { deleteRole, saveRole } from "@/server/services/roles";
 import { updateSettings } from "@/server/services/settings";
+import { createAdminResetLink } from "@/server/services/auth";
 import { requireActor } from "@/server/auth/session";
 import { optStr, runAction, str } from "./utils";
 
@@ -29,6 +30,14 @@ export async function setMemberRolesAction(_prev: ActionResult | null, fd: FormD
     revalidatePath("/", "layout");
     return "Rollen gespeichert.";
   });
+}
+
+export async function createResetLinkAction(fd: FormData): Promise<ActionResult & { url?: string }> {
+  let url: string | undefined;
+  const result = await runAction(async () => {
+    url = await createAdminResetLink(await requireActor(), str(fd, "id"));
+  });
+  return { ...result, url };
 }
 
 export async function rejectRegistrationAction(fd: FormData): Promise<ActionResult> {

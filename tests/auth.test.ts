@@ -5,6 +5,7 @@ import { passwordResetTokens, sessions, users } from "@/server/db/schema";
 import {
   authenticate,
   changePassword,
+  createAdminResetLink,
   getUserBySessionToken,
   registerUser,
   requestPasswordReset,
@@ -122,6 +123,40 @@ describe("Passwort zurücksetzen", () => {
 
   it("verrät nicht, ob eine E-Mail existiert", async () => {
     await expect(requestPasswordReset("unbekannt@demo.test")).resolves.toBeNull();
+  });
+});
+
+describe("Reset-Link durch Verwalter", () => {
+  it("Admin erzeugt einen 24 Stunden gültigen Link, mit dem das Mitglied ein neues Passwort setzt", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const u = await createTestUser();
+    const url = await createAdminResetLink(admin, u.id);
+    const token = new URL(url).searchParams.get("token")!;
+
+    const [stored] = await getDb().select().from(passwordResetTokens);
+    expect(stored.expiresAt.getTime() - Date.now()).toBeGreaterThan(23 * 60 * 60 * 1000);
+
+    await resetPassword(token, "GanzNeuesPasswort9");
+    await expect(authenticate(u.email, "GanzNeuesPasswort9")).resolves.toHaveProperty("token");
+  });
+
+  it("normale Mitglieder dürfen keine Links erzeugen", async () => {
+    const actor = await createTestUser();
+    const u = await createTestUser();
+    await expect(createAdminResetLink(actor, u.id)).rejects.toThrow(/Berechtigung/);
+  });
+
+  it("kein Link für Konten mit mehr Rechten als der Verwalter", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const actor = { ...admin, permissions: admin.permissions.filter((p) => p !== "roles:manage") };
+    const otherAdmin = await createTestUser({ roles: ["ADMIN"] });
+    await expect(createAdminResetLink(actor, otherAdmin.id)).rejects.toThrow(/nur ein Admin/);
+  });
+
+  it("kein Link für gesperrte Mitglieder", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const u = await createTestUser({ status: "INAKTIV" });
+    await expect(createAdminResetLink(admin, u.id)).rejects.toThrow(/gesperrte/);
   });
 });
 

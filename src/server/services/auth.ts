@@ -2,18 +2,21 @@ import "server-only";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { passwordResetTokens, profiles, sessions, userRoles, users, type Role } from "@/server/db/schema";
-import { AppError } from "@/lib/errors";
+import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { displayName } from "@/lib/format";
 import { isPermission, MEMBER_ROLE } from "@/lib/permissions";
-import { permissionsSql } from "./roles";
+import { loadPermissions, permissionsSql } from "./roles";
 import { emailSchema, passwordSchema, registerSchema, zodFieldErrors } from "@/lib/validation";
 import { generateToken, getDummyHash, hashPassword, hashToken, verifyPassword } from "@/server/auth/crypto";
 import { consumeRateLimit, resetRateLimit } from "@/server/auth/rate-limit";
-import type { SessionUser } from "@/server/auth/types";
+import { assertCan } from "@/server/auth/guard";
+import type { Actor, SessionUser } from "@/server/auth/types";
 import { sendMail } from "./mail";
 
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+/** Länger gültig, weil der Link erst per Messenger beim Mitglied ankommen muss. */
+export const ADMIN_RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const LOGIN_LIMIT = { attempts: 8, windowMs: 15 * 60 * 1000 };
 const RESET_LIMIT = { attempts: 3, windowMs: 60 * 60 * 1000 };
 const REGISTER_LIMIT = { attempts: 5, windowMs: 60 * 60 * 1000 };
@@ -157,23 +160,47 @@ export async function requestPasswordReset(rawEmail: string, clientKey = "unknow
   const user = await db.query.users.findFirst({ where: eq(users.email, email) });
   if (!user || user.status === "INAKTIV") return null;
 
-  const token = generateToken();
-  await db.insert(passwordResetTokens).values({
-    id: hashToken(token),
-    userId: user.id,
-    expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
-  });
-
-  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const token = await createResetToken(user.id, RESET_TOKEN_TTL_MS);
   await sendMail({
     to: user.email,
     subject: "Passwort zurücksetzen",
     text:
       `Hallo,\n\nüber folgenden Link kannst du ein neues Passwort für den Kegelclub festlegen:\n\n` +
-      `${appUrl}/passwort-zuruecksetzen?token=${token}\n\n` +
+      `${resetUrl(token)}\n\n` +
       `Der Link ist 60 Minuten gültig. Falls du das nicht angefordert hast, ignoriere diese E-Mail einfach.\n`,
   });
   return token;
+}
+
+/**
+ * Verwalter erzeugen einen Link, den sie dem Mitglied selbst schicken (z. B. per WhatsApp) –
+ * funktioniert ohne E-Mail-Versand. Nur für Mitglieder, die keine Rechte über die eigenen hinaus haben,
+ * sonst könnte man so ein mächtigeres Konto übernehmen.
+ */
+export async function createAdminResetLink(actor: Actor, userId: string): Promise<string> {
+  assertCan(actor, "members:manage");
+  if (actor.id === userId) throw new AppError("Dein eigenes Passwort änderst du im Profil.");
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { id: true, status: true } });
+  if (!user) throw new NotFoundError("Mitglied nicht gefunden.");
+  if (user.status !== "AKTIV" && user.status !== "PASSIV") {
+    throw new AppError("Nur für freigeschaltete, nicht gesperrte Mitglieder möglich.");
+  }
+  const targetPermissions = await loadPermissions(userId);
+  if (targetPermissions.some((p) => !actor.permissions.includes(p))) {
+    throw new ForbiddenError("Dieses Mitglied hat Rechte, die du nicht hast – das kann nur ein Admin.");
+  }
+  return resetUrl(await createResetToken(userId, ADMIN_RESET_TOKEN_TTL_MS));
+}
+
+async function createResetToken(userId: string, ttlMs: number) {
+  const token = generateToken();
+  await db.insert(passwordResetTokens).values({ id: hashToken(token), userId, expiresAt: new Date(Date.now() + ttlMs) });
+  return token;
+}
+
+function resetUrl(token: string) {
+  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return `${appUrl}/passwort-zuruecksetzen?token=${token}`;
 }
 
 export async function resetPassword(token: string, newPassword: string) {

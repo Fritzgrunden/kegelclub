@@ -10,6 +10,7 @@ import { listRoles } from "@/server/services/roles";
 import { setMemberRolesAction, setMemberStatusAction } from "@/server/actions/admin";
 import { AvatarUpload } from "@/components/members/avatar-upload";
 import { ProfileForm } from "@/components/members/profile-form";
+import { ResetLink } from "@/components/members/reset-link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ActionForm } from "@/components/ui/action-form";
@@ -56,6 +57,12 @@ export default async function AdminMemberPage({ params }: { params: Promise<{ id
               ))}
             </div>
           </Card>
+          {actor.id !== id && (member.status === "AKTIV" || member.status === "PASSIV") && (
+            <Card>
+              <CardTitle>Passwort</CardTitle>
+              <ResetLink userId={id} firstName={member.firstName} />
+            </Card>
+          )}
           <Card>
             <CardTitle
               action={hasPermission(actor, "roles:manage") ? <Link href="/verwaltung/rollen" className="text-sm text-messing-hell hover:underline">Rollen bearbeiten</Link> : undefined}
