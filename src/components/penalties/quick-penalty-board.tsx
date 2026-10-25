@@ -8,7 +8,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { inputClass, Spinner } from "@/components/ui/fields";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import { formatEuro, parseEuroToCents } from "@/lib/format";
+import { formatEuro, parseEuroToCents, penaltyLabel } from "@/lib/format";
+import { QuantityStepper } from "./quantity-stepper";
 
 interface Member {
   id: string;
@@ -39,6 +40,7 @@ export function QuickPenaltyBoard({ members, types, canEditCatalog }: { members:
   const [customLabel, setCustomLabel] = useState("");
   const [customAmount, setCustomAmount] = useState("");
   const [saveToCatalog, setSaveToCatalog] = useState(false);
+  const [quantity, setQuantity] = useState(1);
   const [toast, setToast] = useState<Toast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -56,17 +58,21 @@ export function QuickPenaltyBoard({ members, types, canEditCatalog }: { members:
     setCustomLabel("");
     setCustomAmount("");
     setSaveToCatalog(false);
+    setQuantity(1);
     dialog.current?.showModal();
   };
 
   const close = () => dialog.current?.close();
 
-  const submit = (fields: Record<string, string>, label: string, amountCents: number) => {
+  const submit = (fields: Record<string, string>, name: string, unitCents: number) => {
     if (!selected) return;
     const member = selected;
+    const label = penaltyLabel(name, quantity);
+    const amountCents = unitCents * quantity;
     startTransition(async () => {
       const fd = new FormData();
       fd.set("userId", member.id);
+      fd.set("quantity", String(quantity));
       for (const [k, v] of Object.entries(fields)) fd.set(k, v);
       const res = await quickPenaltyAction(fd);
       if (!res.ok || !res.penaltyId) {
@@ -137,6 +143,11 @@ export function QuickPenaltyBoard({ members, types, canEditCatalog }: { members:
               </button>
             </div>
 
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-kreide-dim">Wie oft?</p>
+              <QuantityStepper value={quantity} onChange={setQuantity} />
+            </div>
+
             <div className="grid max-h-[40dvh] gap-2 overflow-y-auto">
               {types.map((t) => (
                 <button
@@ -146,8 +157,8 @@ export function QuickPenaltyBoard({ members, types, canEditCatalog }: { members:
                   onClick={() => give(t)}
                   className="flex min-h-14 items-center justify-between gap-3 rounded-xl border-2 border-eiche bg-theke-2 px-4 text-left hover:border-messing/60 active:bg-messing/15 disabled:opacity-50"
                 >
-                  <span className="font-medium">{t.name}</span>
-                  <span className="font-display font-bold tabular-nums">{formatEuro(t.amountCents)}</span>
+                  <span className="font-medium">{penaltyLabel(t.name, quantity)}</span>
+                  <span className="font-display font-bold tabular-nums">{formatEuro(t.amountCents * quantity)}</span>
                 </button>
               ))}
             </div>

@@ -22,6 +22,13 @@
       "when": 1791909973037,
       "tag": "0002_roles_dues",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792949903182,
+      "tag": "0003_penalty_quantity",
+      "breakpoints": true
     }
   ]
 }

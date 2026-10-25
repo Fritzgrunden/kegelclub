@@ -32,6 +32,12 @@ function euroField(fd: FormData, key: string, required: boolean): number | null 
   return cents;
 }
 
+/** Leer = 1; Ungültiges geht als NaN an die Validierung und bekommt dort eine Fehlermeldung. */
+function quantityField(fd: FormData): number {
+  const raw = optStr(fd, "quantity");
+  return raw ? Number(raw) : 1;
+}
+
 export async function savePenaltyAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const id = optStr(fd, "id");
   const again = str(fd, "intent") === "weitere";
@@ -42,6 +48,7 @@ export async function savePenaltyAction(_prev: ActionResult | null, fd: FormData
       penaltyTypeId: optStr(fd, "penaltyTypeId") ?? null,
       customLabel: optStr(fd, "customLabel"),
       amountCents: euroField(fd, "amount", false),
+      quantity: quantityField(fd),
       date: str(fd, "date"),
       eventId: optStr(fd, "eventId") ?? null,
       comment: optStr(fd, "comment"),
@@ -66,9 +73,10 @@ export async function quickPenaltyAction(fd: FormData): Promise<ActionResult & {
   const result = await runAction(async () => {
     const actor = await requireActor();
     const typeId = optStr(fd, "penaltyTypeId");
+    const quantity = quantityField(fd);
     const id = typeId
-      ? await createQuickPenalty(actor, str(fd, "userId"), typeId)
-      : await createQuickCustomPenalty(actor, str(fd, "userId"), str(fd, "customLabel"), euroField(fd, "amount", true)!, fd.get("saveToCatalog") === "on");
+      ? await createQuickPenalty(actor, str(fd, "userId"), typeId, quantity)
+      : await createQuickCustomPenalty(actor, str(fd, "userId"), str(fd, "customLabel"), euroField(fd, "amount", true)!, fd.get("saveToCatalog") === "on", quantity);
     penaltyId = id;
     // Erst nach Ablauf der Rückgängig-Frist benachrichtigen; wurde die Strafe gelöscht, geht nichts raus.
     after(async () => {

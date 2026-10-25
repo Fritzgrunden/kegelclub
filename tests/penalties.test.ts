@@ -94,6 +94,26 @@ describe("Strafen", () => {
     await createPenalty(kassenwart, penaltyFor(peter.id, typeId));
     await expect(deletePenaltyType(kassenwart, typeId)).rejects.toThrow(/inaktiv/);
   });
+
+  it("Anzahl: Betrag pro Mal × Anzahl, Bezeichnung „3× …“", async () => {
+    const { kassenwart, peter, typeId } = await setup();
+    const id = await createPenalty(kassenwart, penaltyFor(peter.id, typeId, { quantity: 3 }));
+    let [p] = await listPenalties(kassenwart, { userId: peter.id });
+    expect(p).toMatchObject({ label: "3× Zu spät gekommen", amountCents: 600, quantity: 3 });
+    expect(await getOpenPenaltySummary(peter.id)).toEqual({ count: 1, totalCents: 600 });
+
+    // Beim Bearbeiten kommt der Betrag pro Mal aus dem Formular
+    await updatePenalty(kassenwart, id, penaltyFor(peter.id, typeId, { quantity: 2, amountCents: 250 }));
+    [p] = await listPenalties(kassenwart, { userId: peter.id });
+    expect(p).toMatchObject({ label: "2× Zu spät gekommen", amountCents: 500, quantity: 2 });
+  });
+
+  it("Anzahl muss zwischen 1 und 99 liegen", async () => {
+    const { kassenwart, peter, typeId } = await setup();
+    for (const quantity of [0, 100, 1.5, Number.NaN]) {
+      await expect(createPenalty(kassenwart, penaltyFor(peter.id, typeId, { quantity }))).rejects.toMatchObject({ code: "VALIDATION" });
+    }
+  });
 });
 
 describe("Schnellerfassung & Kassieren", () => {
@@ -120,6 +140,17 @@ describe("Schnellerfassung & Kassieren", () => {
     await createQuickPenalty(kassenwart, peter.id, typeId);
     const [p] = await listPenalties(kassenwart, { userId: peter.id });
     expect(p.eventId).toBeNull();
+  });
+
+  it("Schnellerfassung mit Anzahl – auch bei eigener Strafe", async () => {
+    const { kassenwart, peter, typeId } = await setup();
+    await createQuickPenalty(kassenwart, peter.id, typeId, 4);
+    await createQuickCustomPenalty(kassenwart, peter.id, "Bier verschüttet", 150, false, 2);
+    const list = await listPenalties(kassenwart, { userId: peter.id });
+    expect(list.map((p) => [p.label, p.amountCents]).sort()).toEqual([
+      ["2× Bier verschüttet", 300],
+      ["4× Zu spät gekommen", 800],
+    ]);
   });
 
   it("Schnellerfassung nur durch den Kassenwart", async () => {

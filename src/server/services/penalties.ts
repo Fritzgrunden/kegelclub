@@ -4,7 +4,7 @@ import { addDaysYmd, toYmd, zonedToUtc } from "@/lib/dates";
 import { db } from "@/server/db";
 import { events, penalties, penaltyTypes, profiles } from "@/server/db/schema";
 import { AppError, NotFoundError } from "@/lib/errors";
-import { displayName } from "@/lib/format";
+import { displayName, penaltyLabel } from "@/lib/format";
 import { hasPermission } from "@/lib/permissions";
 import { penaltySchema, penaltyTypeSchema, zodFieldErrors } from "@/lib/validation";
 import { assertCan } from "@/server/auth/guard";
@@ -61,7 +61,8 @@ async function resolve(raw: unknown) {
     userId: input.userId,
     penaltyTypeId: input.penaltyTypeId,
     customLabel: input.penaltyTypeId ? null : input.customLabel,
-    amountCents: amountCents ?? 0,
+    amountCents: (amountCents ?? 0) * input.quantity,
+    quantity: input.quantity,
     date: input.date,
     eventId: input.eventId,
     comment: input.comment,
@@ -96,21 +97,21 @@ async function todaysEventId(today: string) {
  * Schnellerfassung an der Bahn: nur Mitglied + Strafart. Datum ist heute, der Termin wird automatisch
  * zugeordnet, wenn heute einer stattfindet (Kegelabend bevorzugt).
  */
-export async function createQuickPenalty(actor: Actor, userId: string, penaltyTypeId: string) {
+export async function createQuickPenalty(actor: Actor, userId: string, penaltyTypeId: string, quantity = 1) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
   const today = toYmd(new Date());
-  return createPenalty(actor, { userId, penaltyTypeId, amountCents: null, date: today, eventId: await todaysEventId(today) });
+  return createPenalty(actor, { userId, penaltyTypeId, amountCents: null, quantity, date: today, eventId: await todaysEventId(today) });
 }
 
 /**
  * Schnellerfassung mit frei gewähltem Titel und Betrag. Mit `saveToCatalog` wird daraus zugleich
  * eine neue Strafart, die beim nächsten Mal direkt zur Auswahl steht.
  */
-export async function createQuickCustomPenalty(actor: Actor, userId: string, label: string, amountCents: number, saveToCatalog = false) {
+export async function createQuickCustomPenalty(actor: Actor, userId: string, label: string, amountCents: number, saveToCatalog = false, quantity = 1) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
-  if (saveToCatalog) return createQuickPenalty(actor, userId, await savePenaltyType(actor, null, { name: label, amountCents, active: true }));
+  if (saveToCatalog) return createQuickPenalty(actor, userId, await savePenaltyType(actor, null, { name: label, amountCents, active: true }), quantity);
   const today = toYmd(new Date());
-  return createPenalty(actor, { userId, penaltyTypeId: null, customLabel: label, amountCents, date: today, eventId: await todaysEventId(today) });
+  return createPenalty(actor, { userId, penaltyTypeId: null, customLabel: label, amountCents, quantity, date: today, eventId: await todaysEventId(today) });
 }
 
 export async function updatePenalty(actor: Actor, id: string, raw: unknown) {
@@ -150,8 +151,10 @@ export interface PenaltyListItem {
   id: string;
   userId: string;
   memberName: string;
+  /** Mit Anzahl, z. B. „3× Gosse“. */
   label: string;
   amountCents: number;
+  quantity: number;
   date: string;
   eventId: string | null;
   eventTitle: string | null;
@@ -177,6 +180,7 @@ export async function listPenalties(actor: Actor, opts: { userId?: string; openO
       typeName: penaltyTypes.name,
       customLabel: penalties.customLabel,
       amountCents: penalties.amountCents,
+      quantity: penalties.quantity,
       date: penalties.date,
       eventId: penalties.eventId,
       eventTitle: events.title,
@@ -196,8 +200,9 @@ export async function listPenalties(actor: Actor, opts: { userId?: string; openO
     id: r.id,
     userId: r.userId,
     memberName: displayName(r),
-    label: r.typeName ?? r.customLabel ?? "Sonstige Strafe",
+    label: penaltyLabel(r.typeName ?? r.customLabel ?? "Sonstige Strafe", r.quantity),
     amountCents: r.amountCents,
+    quantity: r.quantity,
     date: r.date,
     eventId: r.eventId,
     eventTitle: r.eventTitle,

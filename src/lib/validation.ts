@@ -95,7 +95,9 @@ export const penaltySchema = z
     userId: z.string().uuid("Bitte ein Mitglied auswählen."),
     penaltyTypeId: z.string().uuid().nullable(),
     customLabel: optionalText(100),
+    /** Betrag für ein Mal; gespeichert wird Betrag × Anzahl. */
     amountCents: z.number().int().min(0).max(100000).nullable(),
+    quantity: z.number({ invalid_type_error: "Bitte eine Anzahl angeben." }).int("Bitte eine ganze Zahl angeben.").min(1, "Mindestens 1.").max(99, "Höchstens 99.").default(1),
     date: ymd,
     eventId: z.string().uuid().nullable(),
     comment: optionalText(500),

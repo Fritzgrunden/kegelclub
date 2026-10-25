@@ -6,8 +6,9 @@ import { ActionForm } from "@/components/ui/action-form";
 import { Field, Input, Select, SubmitButton, Textarea } from "@/components/ui/fields";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/components/ui/cn";
-import { centsToInput, formatEuro } from "@/lib/format";
+import { centsToInput, formatEuro, parseEuroToCents } from "@/lib/format";
 import { savePenaltyAction } from "@/server/actions/penalties";
+import { QuantityStepper } from "./quantity-stepper";
 
 interface Props {
   members: { id: string; displayName: string; firstName: string; lastName: string; avatarImageId: string | null }[];
@@ -18,7 +19,9 @@ interface Props {
     userId?: string;
     penaltyTypeId?: string | null;
     customLabel?: string | null;
+    /** Gesamtbetrag (Betrag pro Mal × Anzahl). */
     amountCents?: number | null;
+    quantity?: number;
     date: string;
     eventId?: string | null;
     comment?: string | null;
@@ -31,8 +34,10 @@ const OTHER = "SONSTIGE";
 export function PenaltyForm({ members, types, events, defaults }: Props) {
   const [userId, setUserId] = useState(defaults.userId ?? "");
   const [typeId, setTypeId] = useState<string>(defaults.penaltyTypeId ?? (defaults.customLabel ? OTHER : ""));
-  const [amount, setAmount] = useState(defaults.amountCents != null ? centsToInput(defaults.amountCents) : "");
+  const [quantity, setQuantity] = useState(defaults.quantity ?? 1);
+  const [amount, setAmount] = useState(defaults.amountCents != null ? centsToInput(Math.round(defaults.amountCents / (defaults.quantity ?? 1))) : "");
   const editing = Boolean(defaults.id);
+  const unitCents = parseEuroToCents(amount);
 
   const chooseType = (id: string) => {
     setTypeId(id);
@@ -40,7 +45,10 @@ export function PenaltyForm({ members, types, events, defaults }: Props) {
     setAmount(t ? centsToInput(t.amountCents) : "");
   };
 
-  const onSuccess = useCallback(() => setUserId(""), []);
+  const onSuccess = useCallback(() => {
+    setUserId("");
+    setQuantity(1);
+  }, []);
 
   return (
     <ActionForm action={savePenaltyAction} onSuccess={onSuccess} className="flex flex-col gap-6">
@@ -96,9 +104,15 @@ export function PenaltyForm({ members, types, events, defaults }: Props) {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Betrag (€)" name="amount" hint={typeId && typeId !== OTHER ? "Aus dem Katalog, änderbar." : undefined}>
+        <Field label="Wie oft?" name="quantity" hint={quantity > 1 && unitCents !== null ? `Zusammen ${formatEuro(unitCents * quantity)}` : undefined}>
+          <QuantityStepper name="quantity" value={quantity} onChange={setQuantity} />
+        </Field>
+        <Field label="Betrag pro Mal (€)" name="amount" hint={typeId && typeId !== OTHER ? "Aus dem Katalog, änderbar." : undefined}>
           <Input name="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" />
         </Field>
+      </div>
+
+      <div className="grid gap-3">
         <Field label="Datum" name="date">
           <Input name="date" type="date" defaultValue={defaults.date} />
         </Field>

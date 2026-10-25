@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { penalties, penaltyTypes, profiles, roles, userRoles, users } from "@/server/db/schema";
-import { formatEuro, fullName } from "@/lib/format";
+import { formatEuro, fullName, penaltyLabel } from "@/lib/format";
 import { sendMail } from "./mail";
 import { sendPushToUsers } from "./push";
 
@@ -58,6 +58,7 @@ export async function notifyPenaltyCreated(penaltyId: string) {
         typeName: penaltyTypes.name,
         customLabel: penalties.customLabel,
         amountCents: penalties.amountCents,
+        quantity: penalties.quantity,
         comment: penalties.comment,
       })
       .from(penalties)
@@ -66,7 +67,7 @@ export async function notifyPenaltyCreated(penaltyId: string) {
       .limit(1);
     if (!p) return;
 
-    const label = p.typeName ?? p.customLabel ?? "Sonstige Strafe";
+    const label = penaltyLabel(p.typeName ?? p.customLabel ?? "Sonstige Strafe", p.quantity);
     const body = `${label}: ${formatEuro(p.amountCents)}${p.comment ? ` – ${p.comment}` : ""}`;
     await sendPushToUsers([p.userId], { title: "Neue Strafe", body, url: "/strafen" });
   } catch (error) {

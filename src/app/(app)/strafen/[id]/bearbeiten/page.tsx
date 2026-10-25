@@ -14,7 +14,7 @@ export default async function EditPenaltyPage({ params }: { params: Promise<{ id
   return (
     <>
       <PageHeader title="Strafe bearbeiten" back="/strafen" />
-      <PenaltyFormLoader defaults={{ id: p.id, userId: p.userId, penaltyTypeId: p.penaltyTypeId, customLabel: p.customLabel, amountCents: p.amountCents, date: p.date, eventId: p.eventId, comment: p.comment }} />
+      <PenaltyFormLoader defaults={{ id: p.id, userId: p.userId, penaltyTypeId: p.penaltyTypeId, customLabel: p.customLabel, amountCents: p.amountCents, quantity: p.quantity, date: p.date, eventId: p.eventId, comment: p.comment }} />
     </>
   );
 }

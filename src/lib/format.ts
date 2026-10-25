@@ -13,6 +13,9 @@ export function parseEuroToCents(input: string): number | null {
 
 export const centsToInput = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
 
+/** „Gosse“ bzw. „3× Gosse“ */
+export const penaltyLabel = (name: string, quantity: number) => (quantity > 1 ? `${quantity}× ${name}` : name);
+
 export function displayName(p: { firstName: string; lastName: string; nickname?: string | null }) {
   return p.nickname?.trim() ? p.nickname : `${p.firstName} ${p.lastName}`;
 }

@@ -311,8 +311,10 @@ export const penalties = pgTable(
     penaltyTypeId: uuid("penalty_type_id").references(() => penaltyTypes.id, { onDelete: "restrict" }),
     /** Nur bei „sonstiger Strafe“ ohne Katalogeintrag gesetzt. */
     customLabel: text("custom_label"),
-    /** Betrag zum Zeitpunkt der Vergabe (Katalogpreise können sich später ändern). */
+    /** Gesamtbetrag zum Zeitpunkt der Vergabe (Katalogpreise können sich später ändern) – schon mal `quantity`. */
     amountCents: integer("amount_cents").notNull(),
+    /** Wie oft die Strafe passiert ist, z. B. 3× Gosse. */
+    quantity: integer("quantity").notNull().default(1),
     date: date("date", { mode: "string" }).notNull(),
     eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
     comment: text("comment"),
