@@ -22,7 +22,7 @@ const MANAGE_ONLY = "Nur der Kassenwart darf Einnahmen und Ausgaben eintragen.";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-async function creditBalance(tx: Tx, userId: string) {
+async function creditBalance(tx: Tx | typeof db, userId: string) {
   const [row] = await tx
     .select({
       advanced: sql<number>`coalesce((select sum(${cashEntries.amountCents}) from ${cashEntries} where ${cashEntries.paidByUserId} = ${userId} and ${cashEntries.kind} = 'AUSGABE'), 0)::int`,
@@ -164,6 +164,21 @@ export async function listCashEntries(actor: Actor, limit = 200): Promise<CashEn
     ...r,
     paidByName: firstName && lastName ? displayName({ firstName, lastName, nickname }) : null,
   }));
+}
+
+/** Auslagen eines Mitglieds und sein noch freies Guthaben – für die Mitgliederseite. */
+export async function getAdvancesOfUser(actor: Actor, userId: string, limit = 10) {
+  if (actor.id !== userId) assertCan(actor, "cash:view");
+  const [entries, credit] = await Promise.all([
+    db
+      .select({ id: cashEntries.id, amountCents: cashEntries.amountCents, description: cashEntries.description, date: cashEntries.date })
+      .from(cashEntries)
+      .where(and(eq(cashEntries.paidByUserId, userId), eq(cashEntries.kind, "AUSGABE")))
+      .orderBy(desc(cashEntries.date), desc(cashEntries.createdAt))
+      .limit(limit),
+    creditBalance(db, userId),
+  ]);
+  return { entries, creditCents: Math.max(0, credit) };
 }
 
 /** Mitglieder mit noch nicht verrechnetem Guthaben. */

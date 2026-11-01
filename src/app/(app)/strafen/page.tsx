@@ -28,7 +28,7 @@ export const metadata: Metadata = { title: "Strafen" };
 
 type View = "eintragen" | "offen" | "verlauf" | "kasse";
 
-async function Kasse({ user, manage }: { user: SessionUser; manage: boolean }) {
+async function Kasse({ user, manage, openForm = false }: { user: SessionUser; manage: boolean; openForm?: boolean }) {
   const [summary, entries, credits, members] = await Promise.all([
     getCashSummary(user),
     listCashEntries(user),
@@ -41,6 +41,7 @@ async function Kasse({ user, manage }: { user: SessionUser; manage: boolean }) {
       entries={entries}
       credits={credits}
       manage={manage}
+      openForm={openForm}
       members={members.map((m) => ({ id: m.id, displayName: m.displayName }))}
       today={toYmd(new Date())}
     />
@@ -60,7 +61,7 @@ function Tally({ totalCents, label }: { totalCents: number; label: string }) {
 export default async function PenaltiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ansicht?: string; mitglied?: string; filter?: string; gespeichert?: string }>;
+  searchParams: Promise<{ ansicht?: string; mitglied?: string; filter?: string; gespeichert?: string; neu?: string }>;
 }) {
   const user = await requireUser();
   const sp = await searchParams;
@@ -83,7 +84,7 @@ export default async function PenaltiesPage({
         <>
           <PageHeader title="Kasse" actions={catalogButton} />
           <Tabs items={ownTabs} />
-          <Kasse user={user} manage={cashManage} />
+          <Kasse user={user} manage={cashManage} openForm={sp.neu === "1"} />
         </>
       );
     }
@@ -134,7 +135,7 @@ export default async function PenaltiesPage({
       {sp.gespeichert && <Alert tone="success" className="mb-4">Strafe eingetragen.</Alert>}
       <Tabs items={tabs} />
 
-      {view === "kasse" && <Kasse user={user} manage={cashManage} />}
+      {view === "kasse" && <Kasse user={user} manage={cashManage} openForm={sp.neu === "1"} />}
 
       {view === "eintragen" && (
         <>

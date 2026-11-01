@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Cake, ChevronRight, Gavel, PiggyBank, Plus, Trophy, UserPlus, Wallet, type LucideIcon } from "lucide-react";
+import { Cake, ChevronRight, Gavel, PiggyBank, Plus, Receipt, Trophy, UserPlus, Wallet, type LucideIcon } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { formatEuro, displayName } from "@/lib/format";
 import { formatYmd, nextBirthday, toYmd, addDaysYmd } from "@/lib/dates";
@@ -48,6 +48,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const isAdmin = hasPermission(user, "events:manage");
   const isKassenwart = hasPermission(user, "penalties:manage");
+  const canCash = hasPermission(user, "cash:manage");
   const year = new Date().getFullYear();
 
   const showDues = hasPermission(user, "dues:view-own");
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
         </Alert>
       )}
 
-      {(isAdmin || isKassenwart) && (
+      {(isAdmin || isKassenwart || canCash) && (
         <div className="flex gap-2">
           {isAdmin && (
             <LinkButton href="/termine/neu?art=KEGELABEND" variant="secondary" className="min-h-16 min-w-0 flex-1 flex-col gap-1 px-1 text-sm">
@@ -105,6 +106,11 @@ export default async function DashboardPage() {
           {isKassenwart && (
             <LinkButton href="/strafen" variant="secondary" className="min-h-16 min-w-0 flex-1 flex-col gap-1 px-1 text-sm">
               <Gavel size={20} className="shrink-0" aria-hidden /><span className="truncate">Strafe</span>
+            </LinkButton>
+          )}
+          {canCash && (
+            <LinkButton href="/strafen?ansicht=kasse&neu=1" variant="secondary" className="min-h-16 min-w-0 flex-1 flex-col gap-1 px-1 text-sm">
+              <Receipt size={20} className="shrink-0" aria-hidden /><span className="truncate">Ausgabe</span>
             </LinkButton>
           )}
         </div>

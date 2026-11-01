@@ -1,4 +1,5 @@
-import { ArrowDownLeft, ArrowUpRight, ChevronDown, Plus } from "lucide-react";
+import Link from "next/link";
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { formatEuro } from "@/lib/format";
 import { formatYmd } from "@/lib/dates";
 import type { CashEntryItem, CashSummary } from "@/server/services/cash";
@@ -48,6 +49,7 @@ export function CashView({
   entries,
   credits,
   manage,
+  openForm = false,
   members,
   today,
 }: {
@@ -55,6 +57,8 @@ export function CashView({
   entries: CashEntryItem[];
   credits: { userId: string; displayName: string; creditCents: number }[];
   manage: boolean;
+  /** Eintragsformular gleich geöffnet zeigen (Schnellzugriff von der Startseite) */
+  openForm?: boolean;
   members: { id: string; displayName: string }[];
   today: string;
 }) {
@@ -66,7 +70,7 @@ export function CashView({
       </section>
 
       {manage && (
-        <details className="group mb-5 rounded-2xl border border-messing/50 bg-theke">
+        <details open={openForm} className="group mb-5 rounded-2xl border border-messing/50 bg-theke">
           <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 font-semibold text-messing-hell [&::-webkit-details-marker]:hidden">
             <Plus size={20} aria-hidden /> Einnahme oder Ausgabe eintragen
           </summary>
@@ -100,9 +104,13 @@ export function CashView({
           <p className="mb-2 text-sm text-kreide-dim">Wird automatisch mit den nächsten Strafen verrechnet.</p>
           <ul className="overflow-hidden rounded-2xl border border-eiche/70 bg-theke">
             {credits.map((c) => (
-              <li key={c.userId} className="flex min-h-12 items-center justify-between gap-3 border-b border-eiche/50 px-3 last:border-0">
-                <span className="truncate">{c.displayName}</span>
-                <span className="font-display font-bold tabular-nums text-zusage">{formatEuro(c.creditCents)}</span>
+              <li key={c.userId} className="border-b border-eiche/50 last:border-0">
+                <Link href={`/mitglieder/${c.userId}`} className="flex min-h-12 items-center justify-between gap-3 px-3 hover:bg-theke-2/50">
+                  <span className="truncate">{c.displayName}</span>
+                  <span className="flex items-center gap-1 font-display font-bold tabular-nums text-zusage">
+                    {formatEuro(c.creditCents)} <ChevronRight size={16} className="text-kreide-dim" aria-hidden />
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createCashEntry, deleteCashEntry, getCashSummary, listCredits } from "@/server/services/cash";
+import { createCashEntry, deleteCashEntry, getAdvancesOfUser, getCashSummary, listCredits } from "@/server/services/cash";
 import { createPenalty, getOpenPenaltySummary, listPenalties, setPenaltyPaid } from "@/server/services/penalties";
 import { getDb } from "@/server/db/client";
 import { dues } from "@/server/db/schema";
@@ -121,5 +121,18 @@ describe("Kasse", () => {
     await expect(createCashEntry(kassenwart, entry("EINNAHME", 100, fritz.id))).rejects.toMatchObject({ code: "VALIDATION" });
     await expect(createCashEntry(kassenwart, entry("AUSGABE", 0))).rejects.toMatchObject({ code: "VALIDATION" });
     await expect(createCashEntry(kassenwart, { ...entry("AUSGABE", 100), description: " " })).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("Mitgliederseite: eigene Auslagen und freies Guthaben; fremde mit Kassen-Recht (hat jedes Mitglied)", async () => {
+    const { kassenwart, fritz } = await setup();
+    const anna = await createTestUser({ firstName: "Anna" });
+    await createPenalty(kassenwart, penalty(fritz.id, 500, "2026-10-01"));
+    await createCashEntry(kassenwart, entry("AUSGABE", 1500, fritz.id));
+
+    const own = await getAdvancesOfUser(fritz, fritz.id);
+    expect(own.entries).toMatchObject([{ amountCents: 1500, description: "Runde" }]);
+    expect(own.creditCents).toBe(1000); // 15 € ausgelegt − 5 € Strafe verrechnet
+    expect((await getAdvancesOfUser(kassenwart, fritz.id)).creditCents).toBe(1000);
+    expect((await getAdvancesOfUser(anna, fritz.id)).entries).toHaveLength(1);
   });
 });
