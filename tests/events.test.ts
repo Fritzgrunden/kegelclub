@@ -38,6 +38,33 @@ describe("Wiederkehrende Kegelabende", () => {
     expect(rows.every((r) => toHm(r.startsAt) === "19:00")).toBe(true);
   });
 
+  it("jeden 2. Freitag im Monat – Regel wird gespeichert und beim Verlängern verwendet", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const startYear = new Date().getFullYear() + 1;
+    const res = await createEvent(admin, {
+      kind: "KEGELABEND", title: "Kegelabend", date: `${startYear}-01-01`, time: "19:00",
+      recurrence: "MONATLICH_WOCHENTAG", monthWeek: "2", weekday: "5", seriesEndDate: `${startYear}-03-31`,
+    });
+    const dates = async () =>
+      (await getDb().select().from(events).where(eq(events.seriesId, res.seriesId!))).map((e) => toYmd(e.startsAt)).sort();
+    const first = await dates();
+    expect(first).toHaveLength(3);
+    // Alles Freitage, jeweils zwischen dem 8. und 14.
+    expect(first.every((d) => new Date(`${d}T12:00:00Z`).getUTCDay() === 5 && Number(d.slice(8)) >= 8 && Number(d.slice(8)) <= 14)).toBe(true);
+
+    await updateEvent(admin, res.eventId, { title: "Kegelabend", date: first[0], time: "19:00", seriesEndDate: `${startYear}-05-31` }, "SERIE");
+    const extended = await dates();
+    expect(extended).toHaveLength(5);
+    expect(extended.every((d) => new Date(`${d}T12:00:00Z`).getUTCDay() === 5 && Number(d.slice(8)) >= 8 && Number(d.slice(8)) <= 14)).toBe(true);
+  });
+
+  it("Wochentag im Monat ohne Auswahl wird abgelehnt", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    await expect(
+      createEvent(admin, { kind: "KEGELABEND", title: "K", date: future(1), time: "19:00", recurrence: "MONATLICH_WOCHENTAG" }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
   it("einzelner Termin kann verschoben werden, ohne die Serie zu ändern", async () => {
     const admin = await createTestUser({ roles: ["ADMIN"] });
     const res = await createEvent(admin, {

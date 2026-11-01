@@ -66,14 +66,17 @@ export async function createEvent(actor: Actor, raw: unknown, imageId: string | 
     return { eventId: row.id, seriesId: null, count: 1 };
   }
 
+  const monthly = input.recurrence === "MONATLICH_WOCHENTAG";
+  const rule = {
+    startDate: input.date,
+    recurrence: input.recurrence,
+    intervalDays: input.recurrence === "INDIVIDUELL" ? input.intervalDays : null,
+    monthWeek: monthly ? input.monthWeek : null,
+    weekday: monthly ? input.weekday : null,
+  };
   let dates: string[];
   try {
-    dates = generateOccurrenceDates({
-      startDate: input.date,
-      recurrence: input.recurrence,
-      intervalDays: input.intervalDays,
-      endDate: input.seriesEndDate,
-    });
+    dates = generateOccurrenceDates({ ...rule, endDate: input.seriesEndDate });
   } catch (e) {
     throw new AppError(e instanceof Error ? e.message : "Ungültige Wiederholung.");
   }
@@ -82,14 +85,7 @@ export async function createEvent(actor: Actor, raw: unknown, imageId: string | 
   return db.transaction(async (tx) => {
     const [series] = await tx
       .insert(eventSeries)
-      .values({
-        ...common,
-        startDate: input.date,
-        startTime: input.time,
-        recurrence: input.recurrence,
-        intervalDays: input.recurrence === "INDIVIDUELL" ? input.intervalDays : null,
-        endDate: input.seriesEndDate,
-      })
+      .values({ ...common, ...rule, startTime: input.time, endDate: input.seriesEndDate })
       .returning({ id: eventSeries.id });
 
     const inserted = await tx
@@ -182,12 +178,7 @@ export async function updateEvent(actor: Actor, eventId: string, raw: unknown, s
 
     // Serienende verlängert → fehlende Termine nach dem letzten vorhandenen ergänzen.
     const [{ last }] = await tx.select({ last: max(events.seriesDate) }).from(events).where(eq(events.seriesId, seriesId));
-    const all = generateOccurrenceDates({
-      startDate: series.startDate,
-      recurrence: series.recurrence,
-      intervalDays: series.intervalDays,
-      endDate: input.seriesEndDate,
-    });
+    const all = generateOccurrenceDates({ ...series, endDate: input.seriesEndDate });
     const today = toYmd(now);
     const missing = all.filter((d) => (!last || d > last) && d >= today);
     if (missing.length > 0) {

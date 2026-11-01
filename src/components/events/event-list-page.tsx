@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Plus } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import type { EventKind } from "@/server/db/schema";
@@ -7,7 +6,7 @@ import { getMyParticipation, getParticipationCounts, listEvents, upcomingThresho
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LinkButton } from "@/components/ui/button";
-import { cn } from "@/components/ui/cn";
+import { Tabs } from "@/components/ui/tabs";
 import { EventCard } from "./event-card";
 
 export async function EventListPage({ user, kind, past, basePath }: { user: SessionUser; kind: EventKind; past: boolean; basePath: string }) {
@@ -24,22 +23,12 @@ export async function EventListPage({ user, kind, past, basePath }: { user: Sess
         title={title}
         actions={canManage ? <LinkButton href={`/termine/neu?art=${kind}`}><Plus size={18} aria-hidden /> Neu</LinkButton> : undefined}
       />
-      <div className="mb-4 grid grid-cols-2 rounded-xl border border-eiche bg-theke p-1" role="tablist">
-        {[
-          ["Kommende", basePath, !past],
-          ["Vergangene", `${basePath}?zeit=vergangen`, past],
-        ].map(([label, href, active]) => (
-          <Link
-            key={String(label)}
-            href={String(href)}
-            role="tab"
-            aria-selected={Boolean(active)}
-            className={cn("flex min-h-11 items-center justify-center rounded-lg text-[15px] font-medium", active ? "bg-theke-2 text-kreide" : "text-kreide-dim")}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { href: basePath, label: "Kommende", active: !past },
+          { href: `${basePath}?zeit=vergangen`, label: "Vergangene", active: past },
+        ]}
+      />
       {events.length === 0 ? (
         <EmptyState
           title={past ? `Noch keine vergangenen ${title}.` : kind === "KEGELABEND" ? "Noch keine Kegelabende geplant." : "Noch keine Events geplant."}

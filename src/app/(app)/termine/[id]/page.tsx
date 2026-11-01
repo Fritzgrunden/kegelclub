@@ -1,14 +1,13 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Dices, Gavel, MapPin, Pencil, Plus, Repeat, Trophy } from "lucide-react";
+import { CalendarDays, Clock, Gavel, MapPin, Pencil, Plus, Repeat } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { formatDate, formatDateTime, formatTime, formatWeekday, toYmd } from "@/lib/dates";
-import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/format";
+import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, formatEuro } from "@/lib/format";
 import { recurrenceLabel } from "@/lib/recurrence";
 import { requireUser } from "@/server/auth/session";
 import { getEvent, getMyParticipation, getParticipationOverview } from "@/server/services/events";
-import { listSessionsForEvent } from "@/server/services/results";
+import { listPenalties } from "@/server/services/penalties";
 import { deleteEventAction, setEventStatusAction } from "@/server/actions/events";
 import { RsvpButtons } from "@/components/events/rsvp-buttons";
 import { ParticipantList } from "@/components/events/participant-list";
@@ -26,13 +25,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const event = await getEvent(id);
   if (!event) notFound();
 
-  const [overview, mine, sessions] = await Promise.all([
-    getParticipationOverview(id),
-    getMyParticipation(user.id, [id]),
-    listSessionsForEvent(id),
-  ]);
   const canManage = hasPermission(user, "events:manage");
   const canFine = hasPermission(user, "penalties:manage");
+  const showPenalties = event.kind === "KEGELABEND" && hasPermission(user, "penalties:view-all");
+  const [overview, mine, penalties] = await Promise.all([
+    getParticipationOverview(id),
+    getMyParticipation(user.id, [id]),
+    showPenalties ? listPenalties(user, { eventId: id }) : Promise.resolve([]),
+  ]);
   const cancelled = event.status === "ABGESAGT";
   const multiDay = event.endsAt && toYmd(event.endsAt) !== toYmd(event.startsAt);
   const back = event.kind === "EVENT" ? "/events" : "/kegelabende";
@@ -116,35 +116,37 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex flex-col gap-5">
-          <Card>
-            <CardTitle><span className="flex items-center gap-2"><Dices size={20} className="text-messing" aria-hidden /> Spiele</span></CardTitle>
-            {!cancelled && (
-              <LinkButton href={`/termine/${id}/spiel-neu`} size="xl" className="mb-4 w-full">
-                <Plus size={22} aria-hidden /> Spiel hinzufügen
-              </LinkButton>
-            )}
-            {sessions.length === 0 ? (
-              <p className="text-kreide-dim">Noch keine Spiele erfasst.</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {sessions.map((s) => (
-                  <li key={s.id}>
-                    <Link href={`/spielrunden/${s.id}`} className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-eiche bg-theke-2/50 px-3 py-2 hover:border-messing/50">
-                      <span>
-                        <span className="block font-semibold">{s.gameName}</span>
-                        <span className="block text-xs text-kreide-dim">
-                          {s.status === "LAUFEND" ? "läuft noch" : s.winners.length ? `Sieg: ${s.winners.map((w) => w.name).join(", ")}` : "abgeschlossen"}
-                        </span>
+          {showPenalties && (
+            <Card>
+              <CardTitle
+                action={penalties.length > 0 ? <span className="font-display font-bold tabular-nums">{formatEuro(penalties.reduce((s, p) => s + p.amountCents, 0))}</span> : undefined}
+              >
+                <span className="flex items-center gap-2"><Gavel size={20} className="text-messing" aria-hidden /> Strafen an diesem Abend</span>
+              </CardTitle>
+              {penalties.length === 0 ? (
+                <p className="text-kreide-dim">Noch keine Strafen – bisher ein braver Abend.</p>
+              ) : (
+                <ul className="flex flex-col">
+                  {penalties.map((p) => (
+                    <li key={p.id} className="flex min-h-12 items-center justify-between gap-3 border-b border-eiche/50 py-1 last:border-0">
+                      <span className="min-w-0">
+                        <span className="block truncate">{p.label}</span>
+                        <span className="block truncate text-xs text-kreide-dim">{p.memberName}</span>
                       </span>
-                      {s.status === "LAUFEND" ? <Badge tone="messing">Läuft</Badge> : <Trophy size={20} className="text-messing" aria-hidden />}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+                      <span className="shrink-0 font-display font-bold tabular-nums">{formatEuro(p.amountCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canFine && !cancelled && (
+                <LinkButton href={`/strafen/neu?termin=${id}`} variant="secondary" size="lg" className="mt-4 w-full">
+                  <Plus size={20} aria-hidden /> Strafe eintragen
+                </LinkButton>
+              )}
+            </Card>
+          )}
 
-          {canFine && (
+          {canFine && !showPenalties && (
             <LinkButton href={`/strafen/neu?termin=${id}`} variant="secondary" size="lg">
               <Gavel size={20} aria-hidden /> Strafe für diesen Termin
             </LinkButton>
@@ -178,7 +180,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                   action={deleteEventAction}
                   fields={{ id, scope: "EINZELN", kind: event.kind }}
                   variant="danger"
-                  confirm={{ title: "Termin löschen?", text: "Rückmeldungen und erfasste Spiele dieses Termins werden ebenfalls gelöscht.", confirmLabel: "Endgültig löschen" }}
+                  confirm={{ title: "Termin löschen?", text: "Die Rückmeldungen werden ebenfalls gelöscht. Strafen bleiben erhalten.", confirmLabel: "Endgültig löschen" }}
                 >
                   Termin löschen
                 </ActionButton>

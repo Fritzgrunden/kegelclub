@@ -8,8 +8,6 @@ export const PERMISSIONS = [
   "members:view",
   "events:view",
   "events:rsvp",
-  "games:view",
-  "results:enter",
   "stats:view",
   "penalties:view-own",
   "penalties:view-all",
@@ -24,8 +22,6 @@ export const PERMISSIONS = [
   "roles:assign",
   "roles:manage",
   "events:manage",
-  "games:manage",
-  "results:manage",
   "settings:manage",
 ] as const;
 
@@ -47,9 +43,7 @@ export const PERMISSION_INFO: Record<Permission, { label: string; group: (typeof
   "members:view": { label: "Mitgliederliste sehen", group: "Allgemein" },
   "events:view": { label: "Termine sehen", group: "Allgemein" },
   "events:rsvp": { label: "Zu Terminen zu-/absagen", group: "Allgemein" },
-  "games:view": { label: "Kegelspiele sehen", group: "Allgemein" },
-  "results:enter": { label: "Ergebnisse eintragen", group: "Allgemein" },
-  "stats:view": { label: "Rangliste & Statistik sehen", group: "Allgemein" },
+  "stats:view": { label: "Statistik sehen", group: "Allgemein" },
   "penalties:view-own": { label: "Eigene Strafen sehen", group: "Strafen" },
   "penalties:view-all": { label: "Strafen aller Mitglieder sehen", group: "Strafen" },
   "penalties:manage": { label: "Strafen vergeben und kassieren", group: "Strafen" },
@@ -63,8 +57,6 @@ export const PERMISSION_INFO: Record<Permission, { label: string; group: (typeof
   "roles:assign": { label: "Rollen an Mitglieder vergeben", group: "Verwaltung" },
   "roles:manage": { label: "Rollen anlegen und Rechte festlegen", group: "Verwaltung" },
   "events:manage": { label: "Termine anlegen und bearbeiten", group: "Verwaltung" },
-  "games:manage": { label: "Kegelspiele verwalten", group: "Verwaltung" },
-  "results:manage": { label: "Ergebnisse korrigieren", group: "Verwaltung" },
   "settings:manage": { label: "Vereinseinstellungen ändern", group: "Verwaltung" },
 };
 

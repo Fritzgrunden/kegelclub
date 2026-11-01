@@ -9,14 +9,11 @@ import { getDb, resetDbConnection } from "../src/server/db/client";
 import { eventParticipations, events, profiles, userRoles, users, type Role, type UserStatus } from "../src/server/db/schema";
 import { hashPassword } from "../src/server/auth/crypto";
 import { createEvent, updateEvent } from "../src/server/services/events";
-import { saveGame } from "../src/server/services/games";
-import { createGameSession, saveScores } from "../src/server/services/results";
 import { createPenalty, savePenaltyType, setPenaltyPaid } from "../src/server/services/penalties";
 import { updateSettings } from "../src/server/services/settings";
 import { loadPermissions } from "../src/server/services/roles";
 import type { Permission } from "../src/lib/permissions";
 import { addDaysYmd, toYmd } from "../src/lib/dates";
-import { DEFAULT_GAMES } from "./data/games";
 
 // Reproduzierbarer Zufall
 let seed = 42;
@@ -53,7 +50,7 @@ async function main() {
   }
   if (reset) {
     await db.execute(sql`
-      truncate table dues, penalties, penalty_types, game_results, game_sessions, game_rules, games, event_participations,
+      truncate table cash_entries, dues, penalties, penalty_types, event_participations,
       events, event_series, password_reset_tokens, sessions, rate_limits, user_roles, profiles, images, users, settings cascade`);
   }
 
@@ -74,10 +71,6 @@ async function main() {
   const active = people.filter((p) => p.status === "AKTIV");
 
   await updateSettings(admin, { clubName: "Kegelclub Alle Neune (Demo)", defaultLocation: "Gaststätte Zur Goldenen Kugel, Bahn 2", defaultTime: "19:00" });
-
-  console.log("→ Kegelspiele");
-  const gameIds: Record<string, string> = {};
-  for (const g of DEFAULT_GAMES) gameIds[g.slug] = await saveGame(admin, null, g);
 
   console.log("→ Kegelabende (Serie alle 2 Wochen) & Events");
   const today = toYmd(new Date());
@@ -137,22 +130,6 @@ async function main() {
   for (const e of future.slice(0, 3)) await rsvp(e.id, 0.5);
   await rsvp(tour.eventId, 0.6);
   await rsvp(xmas.eventId, 0.4);
-
-  console.log("→ Spielrunden & Ergebnisse");
-  const ranges: Record<string, [number, number]> = {
-    neuner: [18, 38], abraeumen: [2, 8], tannenbaum: [3, 9], hausnummern: [300, 980],
-    fuchsjagd: [0, 6], kranzkegeln: [20, 60], "plus-minus": [0, 30], einunddreissig: [4, 12],
-  };
-  for (const e of past) {
-    const confirmed = (await db.select().from(eventParticipations).where(sql`${eventParticipations.eventId} = ${e.id} and ${eventParticipations.status} = 'ZUGESAGT'`)).map((r) => r.userId);
-    if (confirmed.length < 2) continue;
-    const slugs = Object.keys(gameIds).sort(() => rand() - 0.5).slice(0, randInt(2, 3));
-    for (const slug of slugs) {
-      const sessionId = await createGameSession(admin, e.id, gameIds[slug], confirmed);
-      const [min, max] = ranges[slug];
-      await saveScores(admin, sessionId, confirmed.map((userId) => ({ userId, score: randInt(min, max) })), true);
-    }
-  }
 
   console.log("→ Strafkatalog & Strafen");
   const catalog = [

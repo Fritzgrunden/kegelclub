@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { hasPermission } from "@/lib/permissions";
 import { createEvent, deleteEvent } from "@/server/services/events";
-import { saveGame } from "@/server/services/games";
 import { setUserRoles, setUserStatus, updateProfile } from "@/server/services/users";
 import { updateSettings } from "@/server/services/settings";
 import { createTestUser, truncateAll } from "./helpers";
@@ -58,12 +57,11 @@ describe("Normale Mitglieder können keine Admin-Funktionen ausführen", () => {
     await expect(updateProfile(member, member.id, { firstName: "Neu", lastName: "Name" })).resolves.toBeUndefined();
   });
 
-  it("keine Mitglieder sperren, keine Spiele/Einstellungen ändern", async () => {
+  it("keine Mitglieder sperren, keine Einstellungen ändern", async () => {
     const member = await createTestUser();
     const other = await createTestUser();
     await expect(setUserStatus(member, other.id, "INAKTIV")).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(updateSettings(member, { clubName: "Hack", defaultLocation: "", defaultTime: "19:00" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(saveGame(member, null, {})).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

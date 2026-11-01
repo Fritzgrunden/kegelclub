@@ -11,7 +11,7 @@ export function ProfileForm({ member, adminMode = false }: { member: Member; adm
         <Field label="Vorname" name="firstName"><Input name="firstName" defaultValue={member.firstName} autoComplete="given-name" /></Field>
         <Field label="Nachname" name="lastName"><Input name="lastName" defaultValue={member.lastName} autoComplete="family-name" /></Field>
       </div>
-      <Field label="Spitzname" name="nickname" hint="Wird in Listen und Ranglisten angezeigt."><Input name="nickname" defaultValue={member.nickname ?? ""} /></Field>
+      <Field label="Spitzname" name="nickname" hint="Wird in Listen und Statistiken angezeigt."><Input name="nickname" defaultValue={member.nickname ?? ""} /></Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Geburtstag" name="birthday"><Input name="birthday" type="date" defaultValue={member.birthday ?? ""} /></Field>
         <Field label="Telefon (optional)" name="phone"><Input name="phone" type="tel" inputMode="tel" defaultValue={member.phone ?? ""} autoComplete="tel" /></Field>

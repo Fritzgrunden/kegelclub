@@ -174,11 +174,14 @@ export default async function PenaltiesPage({
                 const mine = items.filter((p) => p.userId === t.userId);
                 return (
                   <li key={t.userId}>
-                    <details className="group rounded-2xl border border-eiche/70 bg-theke">
+                    <details className={cn("group rounded-2xl border bg-theke", t.userId === user.id ? "border-messing/60" : "border-eiche/70")}>
                       <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
                         <Avatar person={t} size="md" />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold">{t.displayName}</span>
+                          <span className="block truncate font-semibold">
+                            {t.displayName}
+                            {t.userId === user.id && <span className="ml-1.5 text-xs font-normal text-messing-hell">(du)</span>}
+                          </span>
                           <span className="block text-xs text-kreide-dim">{t.n === 1 ? "1 Strafe" : `${t.n} Strafen`}</span>
                         </span>
                         <span className="font-display text-xl font-bold tabular-nums text-absage">{formatEuro(t.total)}</span>

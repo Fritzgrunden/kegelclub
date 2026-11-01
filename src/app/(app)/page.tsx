@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Cake, Gavel, Plus, Trophy, UserPlus, Wallet } from "lucide-react";
+import type { ReactNode } from "react";
+import { Cake, ChevronRight, Gavel, PiggyBank, Plus, Trophy, UserPlus, Wallet, type LucideIcon } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { formatEuro, displayName } from "@/lib/format";
-import { formatDate, formatYmd, nextBirthday, toYmd, addDaysYmd } from "@/lib/dates";
+import { formatYmd, nextBirthday, toYmd, addDaysYmd } from "@/lib/dates";
 import { requireUser } from "@/server/auth/session";
 import {
   getMyParticipation,
@@ -12,7 +13,8 @@ import {
   listEvents,
   upcomingThreshold,
 } from "@/server/services/events";
-import { getLeaderboard, getRecentResults } from "@/server/services/stats";
+import { getEveningsAttended } from "@/server/services/stats";
+import { getCashSummary } from "@/server/services/cash";
 import { getOpenPenaltySummary } from "@/server/services/penalties";
 import { getOpenDuesSummary } from "@/server/services/dues";
 import { countPendingRegistrations, listMembers } from "@/server/services/users";
@@ -26,6 +28,22 @@ import { Alert } from "@/components/ui/alert";
 
 export const metadata: Metadata = { title: "Start" };
 
+/** Kompakte Kachel mit Symbol, Titel und einer Zeile Status – führt zur Detailseite. */
+function QuickLink({ href, Icon, title, alert = false, children }: { href: string; Icon: LucideIcon; title: string; alert?: boolean; children: ReactNode }) {
+  return (
+    <Link href={href} className="block">
+      <Card className="flex items-center gap-4 hover:border-messing/50">
+        <Icon size={28} className="shrink-0 text-messing" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-lg font-bold">{title}</p>
+          <p className={alert ? "text-absage" : "text-kreide-dim"}>{children}</p>
+        </div>
+        <ChevronRight size={20} className="shrink-0 text-kreide-dim" aria-hidden />
+      </Card>
+    </Link>
+  );
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
   const isAdmin = hasPermission(user, "events:manage");
@@ -33,15 +51,16 @@ export default async function DashboardPage() {
   const year = new Date().getFullYear();
 
   const showDues = hasPermission(user, "dues:view-own");
-  const [nextEvening, upcomingEvents, board, recent, penalties, pending, members, dues] = await Promise.all([
+  const showCash = hasPermission(user, "cash:view");
+  const [nextEvening, upcomingEvents, penalties, pending, members, dues, cash, attended] = await Promise.all([
     getNextEvent("KEGELABEND"),
     listEvents({ kind: "EVENT", from: upcomingThreshold(), limit: 3, includeCancelled: false }),
-    getLeaderboard(year),
-    getRecentResults(user.id, 4),
     getOpenPenaltySummary(user.id),
     isAdmin ? countPendingRegistrations() : Promise.resolve(0),
     listMembers(),
     showDues ? getOpenDuesSummary(user.id) : Promise.resolve({ count: 0, totalCents: 0 }),
+    showCash ? getCashSummary(user) : Promise.resolve(null),
+    getEveningsAttended(user.id, year),
   ]);
 
   const eventIds = [nextEvening?.id, ...upcomingEvents.map((e) => e.id)].filter(Boolean) as string[];
@@ -117,73 +136,25 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-5">
-          <Card>
-            <CardTitle action={<Link href="/statistik" className="text-sm text-messing-hell hover:underline">Rangliste</Link>}>
-              <span className="flex items-center gap-2"><Trophy size={20} className="text-messing" aria-hidden /> Rangliste {year}</span>
-            </CardTitle>
-            {board.length === 0 ? (
-              <p className="text-kreide-dim">Noch keine Spiele gewertet.</p>
-            ) : (
-              <ol className="flex flex-col">
-                {board.slice(0, 5).map((r) => (
-                  <li key={r.userId} className="flex min-h-12 items-center gap-3 border-b border-eiche/50 last:border-0">
-                    <span className="w-6 text-center font-display text-xl font-bold text-messing tabular-nums">{r.position}</span>
-                    <Avatar person={r} size="sm" />
-                    <span className={r.userId === user.id ? "flex-1 font-semibold text-messing-hell" : "flex-1"}>{r.displayName}</span>
-                    <span className="font-display font-bold tabular-nums">{r.points} Pkt.</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Card>
-
-          <Card>
-            <CardTitle>Deine letzten Ergebnisse</CardTitle>
-            {recent.length === 0 ? (
-              <p className="text-kreide-dim">Noch keine Ergebnisse – ab auf die Bahn!</p>
-            ) : (
-              <ul className="flex flex-col">
-                {recent.map((r) => (
-                  <li key={r.sessionId}>
-                    <Link href={`/spielrunden/${r.sessionId}`} className="flex min-h-12 items-center justify-between gap-3 border-b border-eiche/50 py-1 last:border-0">
-                      <span>
-                        <span className="block font-medium">{r.gameName}</span>
-                        <span className="block text-xs text-kreide-dim">{formatDate(r.startsAt)}</span>
-                      </span>
-                      <span className="text-right">
-                        <span className="block font-display font-bold">{r.rank ? `${r.rank}. Platz` : "–"}</span>
-                        <span className="block text-xs text-kreide-dim">{r.score ?? "–"} {r.scoreLabel}</span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Link href="/strafen" className="block">
-            <Card className="flex items-center gap-4 hover:border-messing/50">
-              <Gavel size={28} className="text-messing" aria-hidden />
-              <div className="flex-1">
-                <p className="font-display text-lg font-bold">Deine Strafen</p>
-                <p className="text-kreide-dim">
-                  {penalties.count === 0 ? "Keine offenen Strafen – vorbildlich!" : `${penalties.count} offen · ${formatEuro(penalties.totalCents)}`}
-                </p>
-              </div>
-            </Card>
-          </Link>
+          <QuickLink href="/strafen" Icon={Gavel} title="Deine Strafen" alert={penalties.count > 0}>
+            {penalties.count === 0 ? "Keine offenen Strafen – vorbildlich!" : `${penalties.count} offen · ${formatEuro(penalties.totalCents)}`}
+          </QuickLink>
 
           {dues.count > 0 && (
-            <Link href="/beitraege" className="block">
-              <Card className="flex items-center gap-4 hover:border-messing/50">
-                <Wallet size={28} className="text-messing" aria-hidden />
-                <div className="flex-1">
-                  <p className="font-display text-lg font-bold">Deine Beiträge</p>
-                  <p className="text-kreide-dim">{dues.count === 1 ? "1 Monat" : `${dues.count} Monate`} offen · {formatEuro(dues.totalCents)}</p>
-                </div>
-              </Card>
-            </Link>
+            <QuickLink href="/beitraege" Icon={Wallet} title="Deine Beiträge" alert>
+              {dues.count === 1 ? "1 Monat" : `${dues.count} Monate`} offen · {formatEuro(dues.totalCents)}
+            </QuickLink>
           )}
+
+          {cash && (
+            <QuickLink href="/strafen?ansicht=kasse" Icon={PiggyBank} title="Kasse">
+              {formatEuro(cash.balanceCents)} in der Kasse
+            </QuickLink>
+          )}
+
+          <QuickLink href="/statistik?ansicht=anwesenheit" Icon={Trophy} title={`Deine Kegelabende ${year}`}>
+            {attended === 0 ? "Noch keiner – ab auf die Bahn!" : attended === 1 ? "1-mal dabei gewesen" : `${attended}-mal dabei gewesen`}
+          </QuickLink>
 
           {birthdays.length > 0 && (
             <Card>

@@ -180,10 +180,14 @@ export interface PenaltyListItem {
 }
 
 /** Ohne „penalties:view-all“ sieht man ausschließlich die eigenen Strafen – serverseitig erzwungen. */
-export async function listPenalties(actor: Actor, opts: { userId?: string; openOnly?: boolean; limit?: number } = {}): Promise<PenaltyListItem[]> {
+export async function listPenalties(
+  actor: Actor,
+  opts: { userId?: string; eventId?: string; openOnly?: boolean; limit?: number } = {},
+): Promise<PenaltyListItem[]> {
   const targetUser = hasPermission(actor, "penalties:view-all") ? opts.userId : actor.id;
   const conditions = [];
   if (targetUser) conditions.push(eq(penalties.userId, targetUser));
+  if (opts.eventId) conditions.push(eq(penalties.eventId, opts.eventId));
   if (opts.openOnly) conditions.push(isNull(penalties.paidAt));
 
   const rows = await db

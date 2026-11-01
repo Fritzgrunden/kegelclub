@@ -37,8 +37,7 @@ async function resetRoles() {
 export async function truncateAll() {
   await resetRoles();
   await getDb().execute(sql`
-    truncate table dues, push_subscriptions, penalties, penalty_types, game_results, game_sessions, game_rules, games,
-      event_participations, events, event_series, password_reset_tokens, sessions, rate_limits,
+    truncate table cash_entries, dues, push_subscriptions, penalties, penalty_types, event_participations, events, event_series, password_reset_tokens, sessions, rate_limits,
       user_roles, profiles, images, users, settings restart identity cascade
   `);
 }

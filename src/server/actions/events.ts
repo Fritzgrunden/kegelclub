@@ -37,6 +37,8 @@ export async function saveEventAction(_prev: ActionResult | null, fd: FormData):
       endTime: optStr(fd, "endTime"),
       recurrence: optStr(fd, "recurrence") ?? "KEINE",
       intervalDays: optStr(fd, "intervalDays") ?? null,
+      monthWeek: optStr(fd, "monthWeek") ?? null,
+      weekday: optStr(fd, "weekday") ?? null,
       seriesEndDate: optStr(fd, "seriesEndDate"),
     };
     const image = file(fd, "image");

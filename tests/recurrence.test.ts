@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateOccurrenceDates, nthWeekdayLabel, recurrenceLabel } from "@/lib/recurrence";
+import { generateOccurrenceDates, monthWeekLabel, monthWeekOf, recurrenceLabel } from "@/lib/recurrence";
 import { formatDateTime, toHm, zonedToUtc } from "@/lib/dates";
 
 describe("Wiederkehrende Termine (Regel)", () => {
@@ -18,18 +18,30 @@ describe("Wiederkehrende Termine (Regel)", () => {
     ]);
   });
 
-  it("monatlich am 3. Samstag – auch über den Jahreswechsel", () => {
+  it("jeden 2. Freitag im Monat – erster Termin ist der erste passende ab dem Startdatum, auch über den Jahreswechsel", () => {
+    // 01.11.2026 ist ein Sonntag; der 2. Freitag im November ist der 13.
     expect(
-      generateOccurrenceDates({ startDate: "2026-11-21", recurrence: "MONATLICH_WOCHENTAG", endDate: "2027-02-28" }),
-    ).toEqual(["2026-11-21", "2026-12-19", "2027-01-16", "2027-02-20"]);
-    expect(recurrenceLabel({ recurrence: "MONATLICH_WOCHENTAG", startDate: "2026-11-21" })).toBe("Monatlich am 3. Samstag");
+      generateOccurrenceDates({ startDate: "2026-11-01", recurrence: "MONATLICH_WOCHENTAG", monthWeek: 2, weekday: 5, endDate: "2027-02-28" }),
+    ).toEqual(["2026-11-13", "2026-12-11", "2027-01-08", "2027-02-12"]);
+    expect(recurrenceLabel({ recurrence: "MONATLICH_WOCHENTAG", startDate: "2026-11-01", monthWeek: 2, weekday: 5 })).toBe("Jeden Monat am 2. Freitag");
   });
 
-  it("monatlich am letzten Samstag, wenn der Start der 5. Samstag ist", () => {
+  it("liegt der Start nach dem 2. Freitag, beginnt die Serie im Folgemonat", () => {
     expect(
-      generateOccurrenceDates({ startDate: "2026-10-31", recurrence: "MONATLICH_WOCHENTAG", endDate: "2027-01-31" }),
-    ).toEqual(["2026-10-31", "2026-11-28", "2026-12-26", "2027-01-30"]);
-    expect(nthWeekdayLabel("2026-10-31")).toBe("letzter Samstag");
+      generateOccurrenceDates({ startDate: "2026-11-14", recurrence: "MONATLICH_WOCHENTAG", monthWeek: 2, weekday: 5, endDate: "2026-12-31" }),
+    ).toEqual(["2026-12-11"]);
+  });
+
+  it("jeden letzten Freitag – auch in Monaten mit nur 4 Freitagen", () => {
+    expect(
+      generateOccurrenceDates({ startDate: "2027-01-01", recurrence: "MONATLICH_WOCHENTAG", monthWeek: 5, weekday: 5, endDate: "2027-03-31" }),
+    ).toEqual(["2027-01-29", "2027-02-26", "2027-03-26"]);
+    expect(monthWeekLabel(5, 5)).toBe("letzten Freitag");
+  });
+
+  it("schlägt Wochentag und „der wievielte“ aus einem Datum vor", () => {
+    expect(monthWeekOf("2026-11-21")).toEqual({ weekday: 6, monthWeek: 3 }); // 3. Samstag
+    expect(monthWeekOf("2026-10-31")).toEqual({ weekday: 6, monthWeek: 5 }); // letzter Samstag
   });
 
   it("individuelles Intervall", () => {

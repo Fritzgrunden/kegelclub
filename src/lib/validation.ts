@@ -54,11 +54,16 @@ export const eventInputSchema = z
     endTime: z.string().optional().transform((v) => (v ? v : null)),
     recurrence: z.enum(["KEINE", "TAEGLICH", "WOECHENTLICH", "ZWEIWOECHENTLICH", "MONATLICH", "INDIVIDUELL", "MONATLICH_WOCHENTAG"]).default("KEINE"),
     intervalDays: z.coerce.number().int().min(1).max(365).optional().nullable(),
+    monthWeek: z.coerce.number().int().min(1).max(5).optional().nullable(),
+    weekday: z.coerce.number().int().min(0).max(6).optional().nullable(),
     seriesEndDate: optionalYmd,
   })
   .superRefine((v, ctx) => {
     if (v.recurrence === "INDIVIDUELL" && !v.intervalDays) {
       ctx.addIssue({ code: "custom", path: ["intervalDays"], message: "Bitte das Intervall in Tagen angeben." });
+    }
+    if (v.recurrence === "MONATLICH_WOCHENTAG" && (v.monthWeek == null || v.weekday == null)) {
+      ctx.addIssue({ code: "custom", path: ["monthWeek"], message: "Bitte wählen, an welchem Wochentag im Monat." });
     }
     if (v.seriesEndDate && v.seriesEndDate < v.date) {
       ctx.addIssue({ code: "custom", path: ["seriesEndDate"], message: "Das Serienende liegt vor dem ersten Termin." });
@@ -123,28 +128,6 @@ export const cashEntrySchema = z
     paidByUserId: z.string().uuid("Unbekanntes Mitglied.").nullable(),
   })
   .refine((v) => v.kind === "AUSGABE" || v.paidByUserId === null, { path: ["paidByUserId"], message: "Nur bei Ausgaben möglich." });
-
-export const gameSchema = z.object({
-  name: trimmed(80).min(1, "Bitte einen Namen angeben."),
-  slug: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9-]{2,60}$/, "Nur Kleinbuchstaben, Ziffern und Bindestriche (2–60 Zeichen)."),
-  shortDescription: trimmed(200).min(1, "Bitte eine Kurzbeschreibung angeben."),
-  goal: trimmed(2000).min(1, "Bitte das Ziel beschreiben."),
-  players: trimmed(100).min(1, "Bitte die Spielerzahl angeben."),
-  procedure: trimmed(5000).min(1, "Bitte den Ablauf beschreiben."),
-  scoring: trimmed(2000).min(1, "Bitte die Wertung beschreiben."),
-  example: trimmed(3000).min(1, "Bitte ein Beispiel angeben."),
-  rules: z.array(trimmed(500)).max(30),
-  scoringMode: z.enum(["HOECHSTE_GEWINNT", "NIEDRIGSTE_GEWINNT"]),
-  scoreLabel: trimmed(30).min(1),
-  active: z.boolean(),
-  sortOrder: z.number().int().min(0).max(999),
-});
-
-export type GameInput = z.infer<typeof gameSchema>;
 
 /** Wandelt ZodError in { feld: meldung } um. */
 export function zodFieldErrors(error: z.ZodError): Record<string, string> {

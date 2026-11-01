@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Kegelclub", template: "%s · Kegelclub" },
-  description: "Vereins-App für Kegelabende, Spiele, Ergebnisse und Strafen.",
+  description: "Vereins-App für Kegelabende, Termine, Strafen und Kasse.",
   appleWebApp: { capable: true, title: "Kegelclub", statusBarStyle: "black-translucent" },
 };
 

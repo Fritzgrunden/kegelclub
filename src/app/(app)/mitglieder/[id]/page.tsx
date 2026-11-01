@@ -8,8 +8,8 @@ import { formatEuro } from "@/lib/format";
 import { requireUser } from "@/server/auth/session";
 import { canSeePrivateData, getMember } from "@/server/services/users";
 import { listParticipationsOfUser } from "@/server/services/events";
-import { getPersonalStats, getRecentResults } from "@/server/services/stats";
-import { listPenalties } from "@/server/services/penalties";
+import { getEveningsAttended } from "@/server/services/stats";
+import { getPenaltyStats, listPenalties } from "@/server/services/penalties";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -29,14 +29,18 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   const showPrivate = canSeePrivateData(viewer, id);
   const showPenalties = isSelf || hasPermission(viewer, "penalties:view-all");
 
-  const [stats, recent, upcoming, past, penalties] = await Promise.all([
-    getPersonalStats(id),
-    getRecentResults(id, 8),
+  const year = new Date().getFullYear();
+  const [eveningsYear, eveningsAll, upcoming, past, penalties, penaltyStats] = await Promise.all([
+    getEveningsAttended(id, year),
+    getEveningsAttended(id),
     listParticipationsOfUser(id, { past: false, limit: 5 }),
     listParticipationsOfUser(id, { past: true, limit: 5 }),
     showPenalties ? listPenalties(viewer, { userId: id, limit: 20 }) : Promise.resolve([]),
+    hasPermission(viewer, "penalties:view-all") ? getPenaltyStats(viewer) : Promise.resolve(null),
   ]);
   const openTotal = penalties.filter((p) => !p.paidAt).reduce((s, p) => s + p.amountCents - p.creditCents, 0);
+  const sinner = penaltyStats?.members.find((m) => m.userId === id);
+  const sinnerRank = sinner ? penaltyStats!.members.indexOf(sinner) + 1 : null;
 
   return (
     <>
@@ -70,41 +74,21 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
         <div className="flex flex-col gap-5">
           <Card>
-            <CardTitle>Statistik (gesamt)</CardTitle>
+            <CardTitle>Statistik</CardTitle>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Stat value={stats.eveningsAttended} label="Kegelabende" />
-              <Stat value={stats.gamesPlayed} label="Spiele" />
-              <Stat value={stats.wins} label="Siege" />
-              <Stat value={stats.points} label="Ranglistenpunkte" />
+              <Stat value={eveningsYear} label={`Kegelabende ${year}`} />
+              <Stat value={eveningsAll} label="Kegelabende gesamt" />
+              {penaltyStats && (
+                <>
+                  <Stat value={sinner?.count ?? 0} label="Strafen gesamt" />
+                  <Stat value={sinnerRank ? `${sinnerRank}.` : "–"} label="in der Sünderkartei" />
+                </>
+              )}
             </div>
-            {stats.bestByGame.length > 0 && (
-              <>
-                <h3 className="mb-2 mt-5 font-display font-bold">Persönliche Bestleistungen</h3>
-                <ul className="flex flex-col">
-                  {stats.bestByGame.map((b) => (
-                    <li key={b.gameName} className="flex min-h-11 items-center justify-between border-b border-eiche/50 last:border-0">
-                      <span>{b.gameName}</span>
-                      <span className="font-display font-bold tabular-nums">{b.score} <span className="text-sm font-normal text-kreide-dim">{b.scoreLabel}</span></span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </Card>
-
-          <Card>
-            <CardTitle>Letzte Ergebnisse</CardTitle>
-            {recent.length === 0 ? <p className="text-kreide-dim">Noch keine Ergebnisse.</p> : (
-              <ul className="flex flex-col">
-                {recent.map((r) => (
-                  <li key={r.sessionId}>
-                    <Link href={`/spielrunden/${r.sessionId}`} className="flex min-h-12 items-center justify-between gap-3 border-b border-eiche/50 py-1 last:border-0">
-                      <span><span className="block">{r.gameName}</span><span className="block text-xs text-kreide-dim">{formatDate(r.startsAt)}</span></span>
-                      <span className="text-right font-display font-bold">{r.rank ? `${r.rank}.` : "–"} <span className="text-sm font-normal text-kreide-dim">({r.score ?? "–"} {r.scoreLabel})</span></span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            {sinner?.favorite && (
+              <p className="mt-3 text-sm text-kreide-dim">
+                Lieblingsstrafe: <span className="text-kreide">{sinner.favorite.label}</span> ({sinner.favorite.count}×) · zusammen {formatEuro(sinner.totalCents)}
+              </p>
             )}
           </Card>
 

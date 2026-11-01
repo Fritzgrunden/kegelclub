@@ -11,7 +11,6 @@ import {
   index,
   uniqueIndex,
   customType,
-  serial,
 } from "drizzle-orm/pg-core";
 
 const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
@@ -43,12 +42,10 @@ export const recurrenceEnum = pgEnum("recurrence", [
   "ZWEIWOECHENTLICH",
   "MONATLICH",
   "INDIVIDUELL",
-  /** z. B. jeden 3. Samstag im Monat – Wochentag und „der wievielte“ ergeben sich aus dem Startdatum. */
+  /** z. B. jeden 2. Freitag im Monat – siehe `monthWeek` und `weekday` der Serie. */
   "MONATLICH_WOCHENTAG",
 ]);
 export const rsvpEnum = pgEnum("rsvp_status", ["ZUGESAGT", "ABGESAGT"]);
-export const scoringModeEnum = pgEnum("scoring_mode", ["HOECHSTE_GEWINNT", "NIEDRIGSTE_GEWINNT"]);
-export const gameSessionStatusEnum = pgEnum("game_session_status", ["LAUFEND", "ABGESCHLOSSEN"]);
 export const cashEntryKindEnum = pgEnum("cash_entry_kind", ["EINNAHME", "AUSGABE"]);
 
 /* ───────────── Benutzer & Authentifizierung ───────────── */
@@ -175,6 +172,10 @@ export const eventSeries = pgTable("event_series", {
   startTime: text("start_time").notNull(),
   recurrence: recurrenceEnum("recurrence").notNull(),
   intervalDays: integer("interval_days"),
+  /** Bei MONATLICH_WOCHENTAG: der wievielte im Monat (1–4, 5 = letzter) … */
+  monthWeek: integer("month_week"),
+  /** … und welcher Wochentag (0 = Sonntag … 6 = Samstag). */
+  weekday: integer("weekday"),
   endDate: date("end_date", { mode: "string" }),
   imageId: uuid("image_id").references(() => images.id, { onDelete: "set null" }),
   createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
@@ -225,70 +226,6 @@ export const eventParticipations = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [primaryKey({ columns: [t.eventId, t.userId] })],
-);
-
-/* ───────────── Kegelspiele ───────────── */
-
-export const games = pgTable("games", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  slug: text("slug").notNull().unique(),
-  name: text("name").notNull(),
-  shortDescription: text("short_description").notNull(),
-  goal: text("goal").notNull(),
-  players: text("players").notNull(),
-  procedure: text("procedure").notNull(),
-  scoring: text("scoring").notNull(),
-  example: text("example").notNull(),
-  scoringMode: scoringModeEnum("scoring_mode").notNull().default("HOECHSTE_GEWINNT"),
-  scoreLabel: text("score_label").notNull().default("Punkte"),
-  active: boolean("active").notNull().default(true),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
-
-export const gameRules = pgTable("game_rules", {
-  id: serial("id").primaryKey(),
-  gameId: uuid("game_id")
-    .notNull()
-    .references(() => games.id, { onDelete: "cascade" }),
-  position: integer("position").notNull(),
-  text: text("text").notNull(),
-});
-
-/** Eine gespielte Runde eines Kegelspiels an einem Termin. */
-export const gameSessions = pgTable(
-  "game_sessions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => events.id, { onDelete: "cascade" }),
-    gameId: uuid("game_id")
-      .notNull()
-      .references(() => games.id, { onDelete: "restrict" }),
-    status: gameSessionStatusEnum("status").notNull().default("LAUFEND"),
-    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
-    createdAt: createdAt(),
-    finishedAt: timestamp("finished_at", { withTimezone: true }),
-  },
-  (t) => [index("game_sessions_event_idx").on(t.eventId)],
-);
-
-/** Teilnehmer einer Spielrunde inkl. Ergebnis (GameParticipant + GameResult zusammengeführt). */
-export const gameResults = pgTable(
-  "game_results",
-  {
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => gameSessions.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    score: integer("score"),
-    rank: integer("rank"),
-  },
-  (t) => [primaryKey({ columns: [t.sessionId, t.userId] })],
 );
 
 /* ───────────── Strafen ───────────── */
@@ -389,5 +326,4 @@ export type EventType = (typeof eventTypeEnum.enumValues)[number];
 export type EventStatus = (typeof eventStatusEnum.enumValues)[number];
 export type Recurrence = (typeof recurrenceEnum.enumValues)[number];
 export type RsvpStatus = (typeof rsvpEnum.enumValues)[number];
-export type ScoringMode = (typeof scoringModeEnum.enumValues)[number];
 export type CashEntryKind = (typeof cashEntryKindEnum.enumValues)[number];

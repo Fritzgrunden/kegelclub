@@ -3,26 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, CircleDot, CircleUser, Dices, Ellipsis, Gavel, House, PartyPopper, Settings, Trophy, Users, Wallet,
+  CalendarDays, CircleDot, CircleUser, Ellipsis, Gavel, House, PartyPopper, Settings, Trophy, Users, Wallet,
 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import type { IconName } from "./nav-items";
 
-const ICONS = { House, CircleDot, CalendarDays, Dices, Ellipsis, PartyPopper, Users, Trophy, Gavel, Wallet, CircleUser, Settings };
+const ICONS = { House, CircleDot, CalendarDays, Ellipsis, PartyPopper, Users, Trophy, Gavel, Wallet, CircleUser, Settings };
 
-const ACTIVE_ALIASES: Record<string, string[]> = {
-  "/kegelabende": ["/kegelabende", "/termine", "/spielrunden"],
-  "/mehr": ["/mehr", "/kalender", "/events", "/mitglieder", "/statistik", "/beitraege", "/profil", "/verwaltung"],
+/** Unterseiten, die in der mobilen Tab-Leiste zu einem Reiter gehören. */
+const TAB_ALIASES: Record<string, string[]> = {
+  "/kegelabende": ["/kegelabende", "/termine"],
+  "/mehr": ["/mehr", "/kalender", "/events", "/mitglieder", "/beitraege", "/profil", "/verwaltung"],
 };
 
-function isActive(pathname: string, href: string) {
+const matches = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + "/");
+
+function isActive(pathname: string, href: string, aliases: Record<string, string[]> = {}) {
   if (href === "/") return pathname === "/";
-  return (ACTIVE_ALIASES[href] ?? [href]).some((p) => pathname === p || pathname.startsWith(p + "/"));
+  return (aliases[href] ?? [href]).some((p) => matches(pathname, p));
 }
 
 export function SidebarLink({ href, label, icon }: { href: string; label: string; icon: IconName }) {
   const pathname = usePathname();
-  const active = href === "/kegelabende" ? isActive(pathname, href) : href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
+  const active = isActive(pathname, href, { "/kegelabende": TAB_ALIASES["/kegelabende"] });
   const Icon = ICONS[icon];
   return (
     <Link
@@ -41,7 +44,7 @@ export function SidebarLink({ href, label, icon }: { href: string; label: string
 
 export function TabLink({ href, label, icon }: { href: string; label: string; icon: IconName }) {
   const pathname = usePathname();
-  const active = isActive(pathname, href);
+  const active = isActive(pathname, href, TAB_ALIASES);
   const Icon = ICONS[icon];
   return (
     <Link

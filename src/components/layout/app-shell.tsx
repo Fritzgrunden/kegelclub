@@ -59,7 +59,7 @@ export function AppShell({ user, clubName, children }: { user: SessionUser; club
           className="fixed inset-x-0 bottom-0 z-30 flex border-t border-eiche bg-theke/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
         >
           {tabs.map((t) => (
-            <TabLink key={t.href} href={t.href} label={t.label === "Kegelabende" ? "Kegeln" : t.label} icon={t.icon} />
+            <TabLink key={t.href} href={t.href} label={t.tabLabel ?? t.label} icon={t.icon} />
           ))}
           <TabLink href="/mehr" label="Mehr" icon="Ellipsis" />
         </nav>

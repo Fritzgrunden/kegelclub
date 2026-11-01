@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ChevronRight, Dices, ShieldCheck } from "lucide-react";
+import { ChevronRight, ShieldCheck } from "lucide-react";
 import { hasPermission, MEMBER_ROLE } from "@/lib/permissions";
 import { USER_STATUS_LABELS } from "@/lib/format";
 import { requirePermission } from "@/server/auth/session";
@@ -86,9 +86,6 @@ export default async function AdminPage() {
           </Card>
           {hasPermission(user, "roles:manage") && (
             <LinkButton href="/verwaltung/rollen" variant="secondary" size="lg"><ShieldCheck size={20} aria-hidden /> Rollen & Rechte</LinkButton>
-          )}
-          {hasPermission(user, "games:manage") && (
-            <LinkButton href="/spiele" variant="secondary" size="lg"><Dices size={20} aria-hidden /> Kegelspiele verwalten</LinkButton>
           )}
         </div>
       </div>

@@ -64,10 +64,10 @@ describe("Eigene Rollen", () => {
     const member = await createTestUser();
     await expect(deleteRole(admin, "ADMIN")).rejects.toThrow(/fest eingebaut/);
     await expect(deleteRole(admin, "MITGLIED")).rejects.toThrow(/fest eingebaut/);
-    const key = await saveRole(admin, null, { name: "Sportwart", permissions: ["results:manage"] });
+    const key = await saveRole(admin, null, { name: "Terminwart", permissions: ["events:manage"] });
     await setUserRoles(admin, member.id, [key]);
     await deleteRole(admin, key);
-    expect(await loadPermissions(member.id)).not.toContain("results:manage");
+    expect(await loadPermissions(member.id)).not.toContain("events:manage");
     expect((await getMember(member.id))!.roles.map((r) => r.key)).toEqual(["MITGLIED"]);
   });
 
