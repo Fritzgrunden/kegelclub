@@ -238,6 +238,103 @@ export async function getOpenPenaltySummary(userId: string) {
   return { count: Number(row.n), totalCents: Number(row.total) };
 }
 
+/* ───────────── Statistik ───────────── */
+
+export interface PenaltyStats {
+  totalCount: number;
+  totalCents: number;
+  /** Sünderkartei: wer hat wie viele Strafen; `count` zählt „3× Gosse“ als 3. */
+  members: {
+    userId: string;
+    displayName: string;
+    firstName: string;
+    lastName: string;
+    avatarImageId: string | null;
+    count: number;
+    totalCents: number;
+    favorite: { label: string; count: number } | null;
+  }[];
+  /** Häufigste Strafen */
+  types: { label: string; count: number; totalCents: number }[];
+  /** Teuerste Abende */
+  evenings: { eventId: string; title: string; date: string; count: number; totalCents: number }[];
+}
+
+/** Lustige Auswertung für alle, die alle Strafen sehen dürfen – optional für ein Jahr. */
+export async function getPenaltyStats(actor: Actor, year?: number): Promise<PenaltyStats> {
+  assertCan(actor, "penalties:view-all");
+  const inYear = year ? and(gte(penalties.date, `${year}-01-01`), lt(penalties.date, `${year + 1}-01-01`)) : undefined;
+  // Ohne Parameter, damit SELECT und GROUP BY denselben Ausdruck haben
+  const label = sql<string | null>`coalesce(${penaltyTypes.name}, ${penalties.customLabel})`;
+  const labelText = (l: string | null) => l ?? "Sonstige Strafe";
+  const count = sql<number>`sum(${penalties.quantity})::int`;
+  const total = sql<number>`sum(${penalties.amountCents})::int`;
+
+  const [members, perMemberType, types, evenings] = await Promise.all([
+    db
+      .select({
+        userId: penalties.userId,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        nickname: profiles.nickname,
+        avatarImageId: profiles.avatarImageId,
+        count,
+        total,
+      })
+      .from(penalties)
+      .innerJoin(profiles, eq(profiles.userId, penalties.userId))
+      .where(inYear)
+      .groupBy(penalties.userId, profiles.firstName, profiles.lastName, profiles.nickname, profiles.avatarImageId)
+      .orderBy(desc(count), desc(total)),
+    db
+      .select({ userId: penalties.userId, label, count })
+      .from(penalties)
+      .leftJoin(penaltyTypes, eq(penaltyTypes.id, penalties.penaltyTypeId))
+      .where(inYear)
+      .groupBy(penalties.userId, label),
+    db
+      .select({ label, count, total })
+      .from(penalties)
+      .leftJoin(penaltyTypes, eq(penaltyTypes.id, penalties.penaltyTypeId))
+      .where(inYear)
+      .groupBy(label)
+      .orderBy(desc(count), desc(total))
+      .limit(10),
+    db
+      .select({ eventId: events.id, title: events.title, startsAt: events.startsAt, count, total })
+      .from(penalties)
+      .innerJoin(events, eq(events.id, penalties.eventId))
+      .where(inYear)
+      .groupBy(events.id, events.title, events.startsAt)
+      .orderBy(desc(total))
+      .limit(3),
+  ]);
+
+  const favorites = new Map<string, { label: string; count: number }>();
+  for (const r of perMemberType) {
+    const best = favorites.get(r.userId);
+    if (!best || Number(r.count) > best.count) favorites.set(r.userId, { label: labelText(r.label), count: Number(r.count) });
+  }
+
+  const memberRows = members.map((m) => ({
+    userId: m.userId,
+    displayName: displayName(m),
+    firstName: m.firstName,
+    lastName: m.lastName,
+    avatarImageId: m.avatarImageId,
+    count: Number(m.count),
+    totalCents: Number(m.total),
+    favorite: favorites.get(m.userId) ?? null,
+  }));
+  return {
+    totalCount: memberRows.reduce((s, m) => s + m.count, 0),
+    totalCents: memberRows.reduce((s, m) => s + m.totalCents, 0),
+    members: memberRows,
+    types: types.map((t) => ({ label: labelText(t.label), count: Number(t.count), totalCents: Number(t.total) })),
+    evenings: evenings.map((e) => ({ eventId: e.eventId, title: e.title, date: toYmd(e.startsAt), count: Number(e.count), totalCents: Number(e.total) })),
+  };
+}
+
 /** Offene Beträge je Mitglied (Kassenwart-Übersicht). */
 export async function getOpenTotalsByMember(actor: Actor) {
   assertCan(actor, "penalties:view-all");

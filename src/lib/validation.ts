@@ -52,7 +52,7 @@ export const eventInputSchema = z
     time: hm,
     endDate: optionalYmd,
     endTime: z.string().optional().transform((v) => (v ? v : null)),
-    recurrence: z.enum(["KEINE", "TAEGLICH", "WOECHENTLICH", "ZWEIWOECHENTLICH", "MONATLICH", "INDIVIDUELL"]).default("KEINE"),
+    recurrence: z.enum(["KEINE", "TAEGLICH", "WOECHENTLICH", "ZWEIWOECHENTLICH", "MONATLICH", "INDIVIDUELL", "MONATLICH_WOCHENTAG"]).default("KEINE"),
     intervalDays: z.coerce.number().int().min(1).max(365).optional().nullable(),
     seriesEndDate: optionalYmd,
   })

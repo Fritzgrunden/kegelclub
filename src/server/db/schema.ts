@@ -43,6 +43,8 @@ export const recurrenceEnum = pgEnum("recurrence", [
   "ZWEIWOECHENTLICH",
   "MONATLICH",
   "INDIVIDUELL",
+  /** z. B. jeden 3. Samstag im Monat – Wochentag und „der wievielte“ ergeben sich aus dem Startdatum. */
+  "MONATLICH_WOCHENTAG",
 ]);
 export const rsvpEnum = pgEnum("rsvp_status", ["ZUGESAGT", "ABGESAGT"]);
 export const scoringModeEnum = pgEnum("scoring_mode", ["HOECHSTE_GEWINNT", "NIEDRIGSTE_GEWINNT"]);

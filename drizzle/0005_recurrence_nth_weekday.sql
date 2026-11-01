@@ -1,0 +1,1 @@
+ALTER TYPE "public"."recurrence" ADD VALUE 'MONATLICH_WOCHENTAG';

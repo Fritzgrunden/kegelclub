@@ -7,6 +7,7 @@ import {
   deletePenaltyType,
   listPenaltyTypes,
   getOpenPenaltySummary,
+  getPenaltyStats,
   listPenalties,
   markAllPaidForMember,
   savePenaltyType,
@@ -106,6 +107,28 @@ describe("Strafen", () => {
     await updatePenalty(kassenwart, id, penaltyFor(peter.id, typeId, { quantity: 2, amountCents: 250 }));
     [p] = await listPenalties(kassenwart, { userId: peter.id });
     expect(p).toMatchObject({ label: "2× Zu spät gekommen", amountCents: 500, quantity: 2 });
+  });
+
+  it("Statistik: Sünderkartei mit Anzahl, Lieblingsstrafe, häufigste Strafen und Jahresfilter", async () => {
+    const { kassenwart, peter, max, typeId } = await setup();
+    await createPenalty(kassenwart, penaltyFor(peter.id, typeId, { quantity: 3 }));
+    await createPenalty(kassenwart, penaltyFor(peter.id, null, { customLabel: "Pudel", amountCents: 50 }));
+    await createPenalty(kassenwart, penaltyFor(max.id, null, { customLabel: "Pudel", amountCents: 50, quantity: 2 }));
+    await createPenalty(kassenwart, penaltyFor(max.id, typeId, { date: "2025-06-01" }));
+
+    const stats = await getPenaltyStats(kassenwart, 2026);
+    expect(stats.members.map((m) => [m.displayName, m.count, m.totalCents, m.favorite?.label])).toEqual([
+      ["Peter Demo", 4, 650, "Zu spät gekommen"],
+      ["Max Demo", 2, 100, "Pudel"],
+    ]);
+    // Gleich oft → die teurere zuerst
+    expect(stats.types).toEqual([
+      { label: "Zu spät gekommen", count: 3, totalCents: 600 },
+      { label: "Pudel", count: 3, totalCents: 150 },
+    ]);
+    expect(stats).toMatchObject({ totalCount: 6, totalCents: 750 });
+    expect((await getPenaltyStats(kassenwart)).totalCount).toBe(7);
+    await expect(getPenaltyStats(max)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("Anzahl muss zwischen 1 und 99 liegen", async () => {

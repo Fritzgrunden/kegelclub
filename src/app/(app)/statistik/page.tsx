@@ -3,6 +3,10 @@ import type { Metadata } from "next";
 import { Info } from "lucide-react";
 import { requireUser } from "@/server/auth/session";
 import { getClubTotals, getLeaderboard, getPersonalStats } from "@/server/services/stats";
+import { getPenaltyStats } from "@/server/services/penalties";
+import { hasPermission } from "@/lib/permissions";
+import { PenaltyStatsView } from "@/components/penalties/penalty-stats";
+import { Tabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -10,26 +14,56 @@ import { Stat } from "@/components/ui/stat";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/components/ui/cn";
 
-export const metadata: Metadata = { title: "Rangliste" };
+export const metadata: Metadata = { title: "Statistik" };
 
-export default async function StatsPage({ searchParams }: { searchParams: Promise<{ jahr?: string }> }) {
+export default async function StatsPage({ searchParams }: { searchParams: Promise<{ jahr?: string; ansicht?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const currentYear = new Date().getFullYear();
   const all = sp.jahr === "alle";
   const year = all ? undefined : Number(sp.jahr) || currentYear;
-  const [board, mine, totals] = await Promise.all([getLeaderboard(year), getPersonalStats(user.id, year), getClubTotals(year)]);
+  const canPenalties = hasPermission(user, "penalties:view-all");
+  const penaltiesView = canPenalties && sp.ansicht === "strafen";
   const years = [currentYear, currentYear - 1, currentYear - 2];
+  const viewParam = penaltiesView ? "&ansicht=strafen" : "";
+  const yearParam = all ? "alle" : String(year);
+
+  const chips = (
+    <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+      {years.map((y) => (
+        <Link key={y} href={`/statistik?jahr=${y}${viewParam}`} scroll={false} className={cn("flex min-h-11 shrink-0 items-center rounded-full border px-4", year === y && !all ? "border-messing bg-messing/15 text-messing-hell" : "border-eiche text-kreide-dim")}>{y}</Link>
+      ))}
+      <Link href={`/statistik?jahr=alle${viewParam}`} scroll={false} className={cn("flex min-h-11 shrink-0 items-center rounded-full border px-4", all ? "border-messing bg-messing/15 text-messing-hell" : "border-eiche text-kreide-dim")}>{penaltiesView ? "Alle Jahre" : "Ewige Tabelle"}</Link>
+    </div>
+  );
+  const tabs = canPenalties && (
+    <Tabs
+      items={[
+        { href: `/statistik?jahr=${yearParam}`, label: "Kegeln", active: !penaltiesView },
+        { href: `/statistik?jahr=${yearParam}&ansicht=strafen`, label: "Strafen", active: penaltiesView },
+      ]}
+    />
+  );
+
+  if (penaltiesView) {
+    const stats = await getPenaltyStats(user, year);
+    return (
+      <>
+        <PageHeader title="Statistik" subtitle={all ? "Alle Jahre" : `Jahr ${year}`} />
+        {tabs}
+        {chips}
+        <PenaltyStatsView stats={stats} userId={user.id} />
+      </>
+    );
+  }
+
+  const [board, mine, totals] = await Promise.all([getLeaderboard(year), getPersonalStats(user.id, year), getClubTotals(year)]);
 
   return (
     <>
-      <PageHeader title="Rangliste" subtitle={all ? "Alle Jahre" : `Saison ${year}`} />
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-        {years.map((y) => (
-          <Link key={y} href={`/statistik?jahr=${y}`} className={cn("flex min-h-11 shrink-0 items-center rounded-full border px-4", year === y && !all ? "border-messing bg-messing/15 text-messing-hell" : "border-eiche text-kreide-dim")}>{y}</Link>
-        ))}
-        <Link href="/statistik?jahr=alle" className={cn("flex min-h-11 shrink-0 items-center rounded-full border px-4", all ? "border-messing bg-messing/15 text-messing-hell" : "border-eiche text-kreide-dim")}>Ewige Tabelle</Link>
-      </div>
+      <PageHeader title={canPenalties ? "Statistik" : "Rangliste"} subtitle={all ? "Alle Jahre" : `Saison ${year}`} />
+      {tabs}
+      {chips}
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <section className="tafel rounded-md p-3 sm:p-5">

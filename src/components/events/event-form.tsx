@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ActionForm } from "@/components/ui/action-form";
 import { Field, Input, Select, SubmitButton, Textarea } from "@/components/ui/fields";
 import { cn } from "@/components/ui/cn";
-import { RECURRENCE_LABELS } from "@/lib/recurrence";
+import { nthWeekdayLabel, RECURRENCE_LABELS } from "@/lib/recurrence";
 import { EVENT_TYPE_LABELS } from "@/lib/format";
 import type { EventKind, EventType, Recurrence } from "@/server/db/schema";
 import { saveEventAction } from "@/server/actions/events";
@@ -25,7 +25,9 @@ export interface EventFormDefaults {
 export function EventForm({ kind, defaults, isSeries = false }: { kind: EventKind; defaults: EventFormDefaults; isSeries?: boolean }) {
   const editing = Boolean(defaults.id);
   const [recurrence, setRecurrence] = useState<Recurrence>("KEINE");
+  const [date, setDate] = useState(defaults.date);
   const [scope, setScope] = useState<"EINZELN" | "SERIE">("EINZELN");
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const showSeriesEnd = (!editing && recurrence !== "KEINE") || (editing && isSeries && scope === "SERIE");
 
   return (
@@ -78,7 +80,7 @@ export function EventForm({ kind, defaults, isSeries = false }: { kind: EventKin
 
       <div className="grid grid-cols-2 gap-3">
         <Field label={editing && isSeries && scope === "SERIE" ? "Datum (unverändert)" : "Datum"} name="date">
-          <Input name="date" type="date" defaultValue={defaults.date} required readOnly={editing && isSeries && scope === "SERIE"} />
+          <Input name="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required readOnly={editing && isSeries && scope === "SERIE"} />
         </Field>
         <Field label="Uhrzeit" name="time">
           <Input name="time" type="time" defaultValue={defaults.time} required step={300} />
@@ -106,10 +108,20 @@ export function EventForm({ kind, defaults, isSeries = false }: { kind: EventKin
 
       {!editing && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Wiederholung" name="recurrence">
+          <Field
+            label="Wiederholung"
+            name="recurrence"
+            hint={recurrence === "MONATLICH_WOCHENTAG" && validDate ? "Das Startdatum legt fest, welcher Wochentag gemeint ist." : undefined}
+          >
             <Select name="recurrence" value={recurrence} onChange={(e) => setRecurrence(e.target.value as Recurrence)}>
               {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+                <option key={value} value={value}>
+                  {value === "MONATLICH_WOCHENTAG" && validDate
+                    ? `Monatlich am ${nthWeekdayLabel(date)}`
+                    : value === "MONATLICH" && validDate
+                      ? `Monatlich am ${Number(date.slice(8, 10))}.`
+                      : label}
+                </option>
               ))}
             </Select>
           </Field>

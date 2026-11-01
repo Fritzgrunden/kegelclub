@@ -5,7 +5,7 @@ import { CalendarDays, Clock, Dices, Gavel, MapPin, Pencil, Plus, Repeat, Trophy
 import { hasPermission } from "@/lib/permissions";
 import { formatDate, formatDateTime, formatTime, formatWeekday, toYmd } from "@/lib/dates";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS } from "@/lib/format";
-import { RECURRENCE_LABELS } from "@/lib/recurrence";
+import { recurrenceLabel } from "@/lib/recurrence";
 import { requireUser } from "@/server/auth/session";
 import { getEvent, getMyParticipation, getParticipationOverview } from "@/server/services/events";
 import { listSessionsForEvent } from "@/server/services/results";
@@ -83,8 +83,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               {event.series && (
                 <li className="flex items-center gap-3 text-base text-kreide-dim">
                   <Repeat size={18} aria-hidden className="shrink-0" />
-                  Serie: {RECURRENCE_LABELS[event.series.recurrence]}
-                  {event.series.recurrence === "INDIVIDUELL" && ` (${event.series.intervalDays} Tage)`}
+                  Serie: {recurrenceLabel(event.series)}
                   {event.isDetached && " · einzeln geändert"}
                 </li>
               )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateOccurrenceDates } from "@/lib/recurrence";
+import { generateOccurrenceDates, nthWeekdayLabel, recurrenceLabel } from "@/lib/recurrence";
 import { formatDateTime, toHm, zonedToUtc } from "@/lib/dates";
 
 describe("Wiederkehrende Termine (Regel)", () => {
@@ -16,6 +16,20 @@ describe("Wiederkehrende Termine (Regel)", () => {
       "2026-03-31",
       "2026-04-30",
     ]);
+  });
+
+  it("monatlich am 3. Samstag – auch über den Jahreswechsel", () => {
+    expect(
+      generateOccurrenceDates({ startDate: "2026-11-21", recurrence: "MONATLICH_WOCHENTAG", endDate: "2027-02-28" }),
+    ).toEqual(["2026-11-21", "2026-12-19", "2027-01-16", "2027-02-20"]);
+    expect(recurrenceLabel({ recurrence: "MONATLICH_WOCHENTAG", startDate: "2026-11-21" })).toBe("Monatlich am 3. Samstag");
+  });
+
+  it("monatlich am letzten Samstag, wenn der Start der 5. Samstag ist", () => {
+    expect(
+      generateOccurrenceDates({ startDate: "2026-10-31", recurrence: "MONATLICH_WOCHENTAG", endDate: "2027-01-31" }),
+    ).toEqual(["2026-10-31", "2026-11-28", "2026-12-26", "2027-01-30"]);
+    expect(nthWeekdayLabel("2026-10-31")).toBe("letzter Samstag");
   });
 
   it("individuelles Intervall", () => {
