@@ -2,7 +2,11 @@ node_modules
 .next
 .env
 .env.local
+.env.live
 .data
 *.tsbuildinfo
 next-env.d.ts
 coverage
+
+# Persönliche Claude-Code-Einstellungen
+.claude/settings.local.json

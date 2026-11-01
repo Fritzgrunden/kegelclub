@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --conditions=react-server scripts/migrate.ts",
+    "db:migrate:prod": "tsx --conditions=react-server scripts/migrate.ts --prod",
     "db:seed": "tsx --conditions=react-server scripts/seed.ts",
     "admin:create": "tsx --conditions=react-server scripts/create-admin.ts",
     "setup": "npm run db:migrate && npm run db:seed"
