@@ -113,6 +113,17 @@ export const penaltySchema = z
 
 export type PenaltyInput = z.infer<typeof penaltySchema>;
 
+export const cashEntrySchema = z
+  .object({
+    kind: z.enum(["EINNAHME", "AUSGABE"], { message: "Bitte Einnahme oder Ausgabe wählen." }),
+    amountCents: z.number({ invalid_type_error: "Bitte einen Betrag angeben." }).int().min(1, "Der Betrag muss größer als 0 sein.").max(1000000, "Der Betrag ist zu hoch."),
+    description: trimmed(100).min(1, "Bitte angeben, wofür."),
+    date: ymd,
+    /** Nur bei Ausgaben: Mitglied hat aus eigener Tasche bezahlt. */
+    paidByUserId: z.string().uuid("Unbekanntes Mitglied.").nullable(),
+  })
+  .refine((v) => v.kind === "AUSGABE" || v.paidByUserId === null, { path: ["paidByUserId"], message: "Nur bei Ausgaben möglich." });
+
 export const gameSchema = z.object({
   name: trimmed(80).min(1, "Bitte einen Namen angeben."),
   slug: z

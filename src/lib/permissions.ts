@@ -18,6 +18,8 @@ export const PERMISSIONS = [
   "dues:view-own",
   "dues:view-all",
   "dues:manage",
+  "cash:view",
+  "cash:manage",
   "members:manage",
   "roles:assign",
   "roles:manage",
@@ -38,7 +40,7 @@ export const ADMIN_ROLE = "ADMIN";
 /** Diese Rechte behält die Admin-Rolle immer, damit sich niemand aus der Verwaltung aussperrt. */
 export const LOCKED_ADMIN_PERMISSIONS: readonly Permission[] = ["members:manage", "roles:assign", "roles:manage"];
 
-export const PERMISSION_GROUPS = ["Allgemein", "Strafen", "Beiträge", "Verwaltung"] as const;
+export const PERMISSION_GROUPS = ["Allgemein", "Strafen", "Beiträge", "Kasse", "Verwaltung"] as const;
 
 export const PERMISSION_INFO: Record<Permission, { label: string; group: (typeof PERMISSION_GROUPS)[number] }> = {
   "profile:edit-own": { label: "Eigenes Profil bearbeiten", group: "Allgemein" },
@@ -55,6 +57,8 @@ export const PERMISSION_INFO: Record<Permission, { label: string; group: (typeof
   "dues:view-own": { label: "Eigene Beiträge sehen", group: "Beiträge" },
   "dues:view-all": { label: "Beiträge aller Mitglieder sehen", group: "Beiträge" },
   "dues:manage": { label: "Beiträge festlegen und kassieren", group: "Beiträge" },
+  "cash:view": { label: "Kassenstand und Kassenbuch sehen", group: "Kasse" },
+  "cash:manage": { label: "Einnahmen und Ausgaben eintragen", group: "Kasse" },
   "members:manage": { label: "Mitglieder freischalten und bearbeiten", group: "Verwaltung" },
   "roles:assign": { label: "Rollen an Mitglieder vergeben", group: "Verwaltung" },
   "roles:manage": { label: "Rollen anlegen und Rechte festlegen", group: "Verwaltung" },

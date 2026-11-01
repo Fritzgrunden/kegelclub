@@ -47,6 +47,7 @@ export const recurrenceEnum = pgEnum("recurrence", [
 export const rsvpEnum = pgEnum("rsvp_status", ["ZUGESAGT", "ABGESAGT"]);
 export const scoringModeEnum = pgEnum("scoring_mode", ["HOECHSTE_GEWINNT", "NIEDRIGSTE_GEWINNT"]);
 export const gameSessionStatusEnum = pgEnum("game_session_status", ["LAUFEND", "ABGESCHLOSSEN"]);
+export const cashEntryKindEnum = pgEnum("cash_entry_kind", ["EINNAHME", "AUSGABE"]);
 
 /* ───────────── Benutzer & Authentifizierung ───────────── */
 
@@ -315,6 +316,8 @@ export const penalties = pgTable(
     amountCents: integer("amount_cents").notNull(),
     /** Wie oft die Strafe passiert ist, z. B. 3× Gosse. */
     quantity: integer("quantity").notNull().default(1),
+    /** Teil des Betrags, der mit Guthaben (Auslagen des Mitglieds) verrechnet wurde – der Rest ist bar zu zahlen. */
+    creditCents: integer("credit_cents").notNull().default(0),
     date: date("date", { mode: "string" }).notNull(),
     eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
     comment: text("comment"),
@@ -324,6 +327,28 @@ export const penalties = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("penalties_user_idx").on(t.userId)],
+);
+
+/* ───────────── Kasse ───────────── */
+
+/**
+ * Kassenbuch: Einnahmen und Ausgaben, die nicht schon als Strafe oder Beitrag erfasst sind.
+ * Eine Ausgabe mit `paidByUserId` hat ein Mitglied aus eigener Tasche ausgelegt: Sie verändert
+ * den Kassenstand nicht, sondern wird dem Mitglied als Guthaben gutgeschrieben.
+ */
+export const cashEntries = pgTable(
+  "cash_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: cashEntryKindEnum("kind").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    description: text("description").notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    paidByUserId: uuid("paid_by_user_id").references(() => users.id, { onDelete: "restrict" }),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("cash_entries_date_idx").on(t.date), index("cash_entries_paid_by_idx").on(t.paidByUserId)],
 );
 
 /* ───────────── Monatsbeiträge ───────────── */
@@ -363,3 +388,4 @@ export type EventStatus = (typeof eventStatusEnum.enumValues)[number];
 export type Recurrence = (typeof recurrenceEnum.enumValues)[number];
 export type RsvpStatus = (typeof rsvpEnum.enumValues)[number];
 export type ScoringMode = (typeof scoringModeEnum.enumValues)[number];
+export type CashEntryKind = (typeof cashEntryKindEnum.enumValues)[number];

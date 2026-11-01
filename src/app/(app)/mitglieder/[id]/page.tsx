@@ -36,7 +36,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     listParticipationsOfUser(id, { past: true, limit: 5 }),
     showPenalties ? listPenalties(viewer, { userId: id, limit: 20 }) : Promise.resolve([]),
   ]);
-  const openTotal = penalties.filter((p) => !p.paidAt).reduce((s, p) => s + p.amountCents, 0);
+  const openTotal = penalties.filter((p) => !p.paidAt).reduce((s, p) => s + p.amountCents - p.creditCents, 0);
 
   return (
     <>

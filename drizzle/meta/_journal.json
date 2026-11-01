@@ -29,6 +29,13 @@
       "when": 1792949903182,
       "tag": "0003_penalty_quantity",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793537882623,
+      "tag": "0004_cash",
+      "breakpoints": true
     }
   ]
 }

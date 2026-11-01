@@ -9,6 +9,7 @@ import { hasPermission } from "@/lib/permissions";
 import { penaltySchema, penaltyTypeSchema, zodFieldErrors } from "@/lib/validation";
 import { assertCan } from "@/server/auth/guard";
 import type { Actor } from "@/server/auth/types";
+import { settleCredit } from "./cash";
 
 const KASSENWART_ONLY = "Nur der Kassenwart darf Strafen verwalten.";
 
@@ -73,6 +74,7 @@ export async function createPenalty(actor: Actor, raw: unknown) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
   const values = await resolve(raw);
   const [row] = await db.insert(penalties).values({ ...values, createdById: actor.id }).returning({ id: penalties.id });
+  await settleCredit(values.userId);
   return row.id;
 }
 
@@ -117,19 +119,31 @@ export async function createQuickCustomPenalty(actor: Actor, userId: string, lab
 export async function updatePenalty(actor: Actor, id: string, raw: unknown) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
   const values = await resolve(raw);
-  const res = await db.update(penalties).set({ ...values, updatedAt: new Date() }).where(eq(penalties.id, id)).returning({ id: penalties.id });
-  if (res.length === 0) throw new NotFoundError("Strafe nicht gefunden.");
+  const [before] = await db.select({ userId: penalties.userId }).from(penalties).where(eq(penalties.id, id));
+  if (!before) throw new NotFoundError("Strafe nicht gefunden.");
+  // Wechselt das Mitglied, gehört das verrechnete Guthaben nicht mehr dazu.
+  const reset = before.userId !== values.userId ? { creditCents: 0, paidAt: null } : {};
+  await db.update(penalties).set({ ...values, ...reset, updatedAt: new Date() }).where(eq(penalties.id, id));
+  await settleCredit(values.userId);
+  if (before.userId !== values.userId) await settleCredit(before.userId);
 }
 
+/** Freiwerdendes Guthaben bleibt stehen und wird mit der nächsten Strafe verrechnet. */
 export async function deletePenalty(actor: Actor, id: string) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
   await db.delete(penalties).where(eq(penalties.id, id));
 }
 
-/** Markierung „bezahlt“ – bewusst ohne Kassenbuch (folgt später im Finanzmodul). */
+/**
+ * „Bezahlt“ = der noch offene Rest kam bar in die Kasse. „Offen“ setzt auch eine Verrechnung mit
+ * Guthaben zurück – das Guthaben steht dann wieder zur Verfügung.
+ */
 export async function setPenaltyPaid(actor: Actor, id: string, paid: boolean) {
   assertCan(actor, "penalties:manage", KASSENWART_ONLY);
-  await db.update(penalties).set({ paidAt: paid ? new Date() : null, updatedAt: new Date() }).where(eq(penalties.id, id));
+  await db
+    .update(penalties)
+    .set(paid ? { paidAt: new Date(), updatedAt: new Date() } : { paidAt: null, creditCents: 0, updatedAt: new Date() })
+    .where(eq(penalties.id, id));
 }
 
 /** Ein Mitglied zahlt alles auf einmal: alle offenen Strafen als bezahlt markieren. Gibt die Anzahl zurück. */
@@ -154,6 +168,8 @@ export interface PenaltyListItem {
   /** Mit Anzahl, z. B. „3× Gosse“. */
   label: string;
   amountCents: number;
+  /** Bereits mit Guthaben verrechnet; offen ist `amountCents - creditCents`. */
+  creditCents: number;
   quantity: number;
   date: string;
   eventId: string | null;
@@ -180,6 +196,7 @@ export async function listPenalties(actor: Actor, opts: { userId?: string; openO
       typeName: penaltyTypes.name,
       customLabel: penalties.customLabel,
       amountCents: penalties.amountCents,
+      creditCents: penalties.creditCents,
       quantity: penalties.quantity,
       date: penalties.date,
       eventId: penalties.eventId,
@@ -202,6 +219,7 @@ export async function listPenalties(actor: Actor, opts: { userId?: string; openO
     memberName: displayName(r),
     label: penaltyLabel(r.typeName ?? r.customLabel ?? "Sonstige Strafe", r.quantity),
     amountCents: r.amountCents,
+    creditCents: r.creditCents,
     quantity: r.quantity,
     date: r.date,
     eventId: r.eventId,
@@ -214,7 +232,7 @@ export async function listPenalties(actor: Actor, opts: { userId?: string; openO
 
 export async function getOpenPenaltySummary(userId: string) {
   const [row] = await db
-    .select({ n: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${penalties.amountCents}), 0)::int` })
+    .select({ n: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${penalties.amountCents} - ${penalties.creditCents}), 0)::int` })
     .from(penalties)
     .where(and(eq(penalties.userId, userId), isNull(penalties.paidAt)));
   return { count: Number(row.n), totalCents: Number(row.total) };
@@ -231,12 +249,12 @@ export async function getOpenTotalsByMember(actor: Actor) {
       nickname: profiles.nickname,
       avatarImageId: profiles.avatarImageId,
       n: sql<number>`count(*)::int`,
-      total: sql<number>`sum(${penalties.amountCents})::int`,
+      total: sql<number>`sum(${penalties.amountCents} - ${penalties.creditCents})::int`,
     })
     .from(penalties)
     .innerJoin(profiles, eq(profiles.userId, penalties.userId))
     .where(isNull(penalties.paidAt))
     .groupBy(penalties.userId, profiles.firstName, profiles.lastName, profiles.nickname, profiles.avatarImageId)
-    .orderBy(desc(sql`sum(${penalties.amountCents})`));
+    .orderBy(desc(sql`sum(${penalties.amountCents} - ${penalties.creditCents})`));
   return rows.map((r) => ({ ...r, displayName: displayName(r), n: Number(r.n), total: Number(r.total) }));
 }

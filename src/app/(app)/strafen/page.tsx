@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 import { BookOpen, ChevronDown } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { formatEuro } from "@/lib/format";
-import { formatYmd } from "@/lib/dates";
+import { formatYmd, toYmd } from "@/lib/dates";
 import { requireUser } from "@/server/auth/session";
+import type { SessionUser } from "@/server/auth/types";
+import { getCashSummary, listCashEntries, listCredits } from "@/server/services/cash";
+import { CashView } from "@/components/cash/cash-view";
 import { getOpenPenaltySummary, getOpenTotalsByMember, listPenalties, listPenaltyTypes } from "@/server/services/penalties";
 import { listMembers } from "@/server/services/users";
 import { markAllPaidAction, togglePenaltyPaidAction } from "@/server/actions/penalties";
@@ -23,7 +26,26 @@ import { cn } from "@/components/ui/cn";
 
 export const metadata: Metadata = { title: "Strafen" };
 
-type View = "eintragen" | "offen" | "verlauf";
+type View = "eintragen" | "offen" | "verlauf" | "kasse";
+
+async function Kasse({ user, manage }: { user: SessionUser; manage: boolean }) {
+  const [summary, entries, credits, members] = await Promise.all([
+    getCashSummary(user),
+    listCashEntries(user),
+    listCredits(user),
+    manage ? listMembers() : Promise.resolve([]),
+  ]);
+  return (
+    <CashView
+      summary={summary}
+      entries={entries}
+      credits={credits}
+      manage={manage}
+      members={members.map((m) => ({ id: m.id, displayName: m.displayName }))}
+      today={toYmd(new Date())}
+    />
+  );
+}
 
 function Tally({ totalCents, label }: { totalCents: number; label: string }) {
   return (
@@ -44,6 +66,9 @@ export default async function PenaltiesPage({
   const sp = await searchParams;
   const manage = hasPermission(user, "penalties:manage");
   const viewAll = hasPermission(user, "penalties:view-all");
+  const cash = hasPermission(user, "cash:view");
+  const cashManage = hasPermission(user, "cash:manage");
+  const kasseTab = { href: "/strafen?ansicht=kasse", label: "Kasse", active: sp.ansicht === "kasse" };
   const catalogButton = (
     <LinkButton href="/strafen/katalog" variant="secondary" size="sm">
       <BookOpen size={16} aria-hidden /> {hasPermission(user, "penalty-catalog:manage") ? "Strafarten & Beträge" : "Strafkatalog"}
@@ -52,10 +77,21 @@ export default async function PenaltiesPage({
 
   /* ───── Ansicht für Mitglieder: nur eigene Strafen ───── */
   if (!viewAll) {
+    const ownTabs = cash ? [{ href: "/strafen", label: "Meine Strafen", active: sp.ansicht !== "kasse" }, kasseTab] : [];
+    if (cash && sp.ansicht === "kasse") {
+      return (
+        <>
+          <PageHeader title="Kasse" actions={catalogButton} />
+          <Tabs items={ownTabs} />
+          <Kasse user={user} manage={cashManage} />
+        </>
+      );
+    }
     const [items, summary] = await Promise.all([listPenalties(user), getOpenPenaltySummary(user.id)]);
     return (
       <>
         <PageHeader title="Meine Strafen" actions={catalogButton} />
+        {ownTabs.length > 0 && <Tabs items={ownTabs} />}
         <Tally totalCents={summary.totalCents} label={summary.count === 1 ? "1 offene Strafe" : `${summary.count} offene Strafen`} />
         {items.length === 0 ? <EmptyState title="Keine Strafen – weiter so!" /> : <PenaltyList items={items} manage={false} showMember={false} />}
       </>
@@ -64,12 +100,17 @@ export default async function PenaltiesPage({
 
   /* ───── Ansicht für Kassenwart / Leser aller Strafen ───── */
   const requested = sp.ansicht as View | undefined;
-  const view: View = requested === "offen" || requested === "verlauf" || (requested === "eintragen" && manage) ? requested : manage ? "eintragen" : "offen";
+  const view: View =
+    requested === "offen" || requested === "verlauf" || (requested === "eintragen" && manage) || (requested === "kasse" && cash)
+      ? requested
+      : manage
+        ? "eintragen"
+        : "offen";
   const openOnly = sp.filter === "offen";
 
   const [totals, members, types, items] = await Promise.all([
     getOpenTotalsByMember(user),
-    view === "offen" ? Promise.resolve([]) : listMembers(),
+    view === "offen" || view === "kasse" ? Promise.resolve([]) : listMembers(),
     view === "eintragen" ? listPenaltyTypes() : Promise.resolve([]),
     view === "offen"
       ? listPenalties(user, { openOnly: true })
@@ -84,13 +125,16 @@ export default async function PenaltiesPage({
     ...(manage ? [{ href: "/strafen", label: "Eintragen", active: view === "eintragen" }] : []),
     { href: "/strafen?ansicht=offen", label: "Offen", active: view === "offen", count: totals.length },
     { href: "/strafen?ansicht=verlauf", label: "Verlauf", active: view === "verlauf" },
+    ...(cash ? [kasseTab] : []),
   ];
 
   return (
     <>
-      <PageHeader title="Strafen" actions={catalogButton} />
+      <PageHeader title={view === "kasse" ? "Kasse" : "Strafen"} actions={catalogButton} />
       {sp.gespeichert && <Alert tone="success" className="mb-4">Strafe eingetragen.</Alert>}
       <Tabs items={tabs} />
+
+      {view === "kasse" && <Kasse user={user} manage={cashManage} />}
 
       {view === "eintragen" && (
         <>
@@ -146,9 +190,12 @@ export default async function PenaltiesPage({
                             <li key={p.id} className="flex min-h-14 items-center gap-3 border-b border-eiche/40 last:border-0">
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate">{p.label}</span>
-                                <span className="block text-xs text-kreide-dim">{formatYmd(p.date)}</span>
+                                <span className="block text-xs text-kreide-dim">
+                                  {formatYmd(p.date)}
+                                  {p.creditCents > 0 && ` · ${formatEuro(p.creditCents)} verrechnet`}
+                                </span>
                               </span>
-                              <span className="font-display font-bold tabular-nums">{formatEuro(p.amountCents)}</span>
+                              <span className="font-display font-bold tabular-nums">{formatEuro(p.amountCents - p.creditCents)}</span>
                               {manage && (
                                 <ActionButton action={togglePenaltyPaidAction} fields={{ id: p.id, paid: "1" }} variant="secondary" size="sm" ariaLabel={`${p.label} bezahlt`}>
                                   Bezahlt
