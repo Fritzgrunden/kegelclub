@@ -6,6 +6,11 @@ export interface MailMessage {
   text: string;
 }
 
+/** Kommen Mails tatsächlich an? In der Entwicklung reicht die Ausgabe in der Konsole. */
+export function canDeliverMail() {
+  return Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM) || process.env.NODE_ENV === "development";
+}
+
 /**
  * E-Mail-Versand über die Resend-HTTP-API (keine zusätzliche Abhängigkeit).
  * Ohne Konfiguration: In der Entwicklung wird die Mail in der Konsole ausgegeben,
