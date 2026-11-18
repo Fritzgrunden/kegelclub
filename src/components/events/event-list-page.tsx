@@ -35,7 +35,7 @@ export async function EventListPage({ user, kind, past, basePath }: { user: Sess
           action={!past && canManage ? <LinkButton href={`/termine/neu?art=${kind}`}><Plus size={18} aria-hidden /> {kind === "KEGELABEND" ? "Kegelabend erstellen" : "Event erstellen"}</LinkButton> : undefined}
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {events.map((e) => (
             <EventCard key={e.id} event={e} counts={counts.get(e.id)} myStatus={past ? undefined : (mine.get(e.id) ?? null)} />
           ))}
