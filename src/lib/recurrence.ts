@@ -61,7 +61,8 @@ export function recurrenceLabel(rule: Pick<RecurrenceRule, "recurrence" | "start
     case "WOECHENTLICH":
       return `Jeden ${WEEKDAYS[weekdayOf(rule.startDate)]}`;
     case "ZWEIWOECHENTLICH":
-      return `Jeden 2. ${WEEKDAYS[weekdayOf(rule.startDate)]}`;
+      // Nicht „Jeden 2. Freitag“ – das liest sich wie „2. Freitag im Monat“
+      return `Alle 2 Wochen ${WEEKDAYS[weekdayOf(rule.startDate)].toLowerCase()}s`;
     case "INDIVIDUELL":
       return `Alle ${rule.intervalDays} Tage`;
     case "TAEGLICH":

@@ -20,7 +20,8 @@ export function Tabs({ items, className }: { items: TabItem[]; className?: strin
           aria-current={t.active ? "page" : undefined}
           scroll={false}
           className={cn(
-            "flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-[15px]",
+            // flex-auto statt flex-1: längere Beschriftungen („Eintragen“) bekommen mehr Platz, statt am Handy abgeschnitten zu werden
+            "flex min-h-12 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-xl px-2 text-[15px]",
             t.active ? "bg-messing font-semibold text-bahn" : "text-kreide-dim hover:bg-theke-2 hover:text-kreide",
           )}
         >

@@ -26,6 +26,11 @@ describe("Wiederkehrende Termine (Regel)", () => {
     expect(recurrenceLabel({ recurrence: "MONATLICH_WOCHENTAG", startDate: "2026-11-01", monthWeek: 2, weekday: 5 })).toBe("Jeden Monat am 2. Freitag");
   });
 
+  it("alle 2 Wochen wird nicht mit „2. Freitag im Monat“ verwechselbar beschriftet", () => {
+    // 06.11.2026 ist ein Freitag
+    expect(recurrenceLabel({ recurrence: "ZWEIWOECHENTLICH", startDate: "2026-11-06" })).toBe("Alle 2 Wochen freitags");
+  });
+
   it("liegt der Start nach dem 2. Freitag, beginnt die Serie im Folgemonat", () => {
     expect(
       generateOccurrenceDates({ startDate: "2026-11-14", recurrence: "MONATLICH_WOCHENTAG", monthWeek: 2, weekday: 5, endDate: "2026-12-31" }),

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MapPin, Repeat } from "lucide-react";
-import { formatDate, formatTime, formatWeekdayShort, toZonedParts } from "@/lib/dates";
+import { formatMonthShort, formatTime, formatWeekdayShort, toZonedParts } from "@/lib/dates";
 import { EVENT_TYPE_LABELS } from "@/lib/format";
 import type { EventRow, ParticipationCounts } from "@/server/services/events";
 import type { RsvpStatus } from "@/server/db/schema";
@@ -30,7 +30,8 @@ export function EventCard({
       <div className="flex w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-tafel py-2 text-center">
         <span className="text-xs uppercase text-kreide-dim">{formatWeekdayShort(event.startsAt)}</span>
         <span className="kreide font-display text-2xl font-bold leading-none">{p.day}</span>
-        <span className="text-xs text-kreide-dim">{formatDate(event.startsAt).slice(3, 5)}.{String(p.year).slice(2)}</span>
+        {/* „Dez 2026“ statt „12.26“ – das sah aus wie ein Datum */}
+        <span className="text-xs text-kreide-dim">{formatMonthShort(event.startsAt)} {p.year}</span>
       </div>
       <div className="min-w-0 flex-1 py-0.5">
         <div className="flex flex-wrap items-center gap-2">

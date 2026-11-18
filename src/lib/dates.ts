@@ -25,6 +25,10 @@ export const formatDateTime = (d: Date) => `${formatDate(d)}, ${formatTime(d)} U
 /** Freitag */
 export const formatWeekday = (d: Date) => weekdayFmt.format(d);
 export const formatWeekdayShort = (d: Date) => weekdayShortFmt.format(d).replace(".", "");
+const MONTHS_SHORT = ["Jan", "Feb", "März", "Apr", "Mai", "Juni", "Juli", "Aug", "Sep", "Okt", "Nov", "Dez"];
+/** Monatskürzel in der Vereinszeitzone: „Dez“ */
+export const formatMonthShort = (d: Date) => MONTHS_SHORT[toZonedParts(d).month - 1];
+
 /** "2026-10" → "Oktober 2026" */
 export function formatMonth(ym: string) {
   const [y, m] = ym.split("-").map(Number);
