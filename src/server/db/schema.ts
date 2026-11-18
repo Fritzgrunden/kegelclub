@@ -177,6 +177,8 @@ export const eventSeries = pgTable("event_series", {
   /** … und welcher Wochentag (0 = Sonntag … 6 = Samstag). */
   weekday: integer("weekday"),
   endDate: date("end_date", { mode: "string" }),
+  /** Zu-/Absagen bis so viele Stunden vor Beginn; null = keine Frist. Wird an neue Serientermine vererbt. */
+  rsvpDeadlineHours: integer("rsvp_deadline_hours"),
   imageId: uuid("image_id").references(() => images.id, { onDelete: "set null" }),
   createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
@@ -199,6 +201,10 @@ export const events = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     status: eventStatusEnum("status").notNull().default("GEPLANT"),
+    /** Zu-/Absagen bis so viele Stunden vor Beginn; null = keine Frist. */
+    rsvpDeadlineHours: integer("rsvp_deadline_hours"),
+    /** Wann die Erinnerung „Morgen ist … – sagst du zu?“ verschickt wurde (verhindert Doppelversand). */
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     imageId: uuid("image_id").references(() => images.id, { onDelete: "set null" }),
     /** true, sobald dieser Serientermin einzeln geändert wurde – Serienänderungen überschreiben ihn dann nicht mehr. */
     isDetached: boolean("is_detached").notNull().default(false),

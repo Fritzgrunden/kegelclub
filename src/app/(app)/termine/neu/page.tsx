@@ -24,6 +24,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
             date: addDaysYmd(toYmd(new Date()), 7),
             time: kind === "KEGELABEND" ? settings.defaultTime : "18:00",
             location: kind === "KEGELABEND" ? settings.defaultLocation : "",
+            rsvpDeadlineHours: settings.defaultRsvpDeadlineHours === "" ? null : Number(settings.defaultRsvpDeadlineHours),
           }}
         />
       </Card>

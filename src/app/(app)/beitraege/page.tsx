@@ -31,6 +31,8 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Tabs } from "@/components/ui/tabs";
+import { moneyTabs } from "@/components/layout/money-tabs";
 
 export const metadata: Metadata = { title: "Beiträge" };
 
@@ -46,6 +48,7 @@ export default async function DuesPage({ searchParams }: { searchParams: Promise
     return (
       <>
         <PageHeader title="Meine Beiträge" />
+        <Tabs items={moneyTabs(user, "beitraege")} />
         <section className="tafel mb-5 rounded-md p-5 text-center">
           <p className="text-sm text-kreide-dim">Offen</p>
           <p className="kreide font-display text-5xl font-bold tabular-nums">{formatEuro(summary.totalCents)}</p>
@@ -114,6 +117,7 @@ export default async function DuesPage({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title="Monatsbeiträge" subtitle={manage ? "Kassenwart-Bereich" : "Übersicht (nur lesen)"} />
+      <Tabs items={moneyTabs(user, "beitraege")} className="mx-auto max-w-2xl" />
 
       <div className="mx-auto flex max-w-2xl flex-col gap-5">
         {manage && unconfigured && (

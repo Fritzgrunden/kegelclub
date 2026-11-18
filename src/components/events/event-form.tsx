@@ -14,6 +14,7 @@ import {
   WEEKDAYS,
 } from "@/lib/recurrence";
 import { isValidYmd } from "@/lib/dates";
+import { RSVP_DEADLINE_OPTIONS } from "@/lib/rsvp";
 import { EVENT_TYPE_LABELS } from "@/lib/format";
 import type { EventKind, EventType, Recurrence } from "@/server/db/schema";
 import { saveEventAction } from "@/server/actions/events";
@@ -29,6 +30,8 @@ export interface EventFormDefaults {
   endDate?: string | null;
   endTime?: string | null;
   seriesEndDate?: string | null;
+  /** null = keine Frist */
+  rsvpDeadlineHours: number | null;
 }
 
 const PREVIEW_COUNT = 4;
@@ -94,7 +97,7 @@ export function EventForm({ kind, defaults, isSeries = false }: { kind: EventKin
             {(
               [
                 ["EINZELN", "Nur diesen Termin ändern", "z. B. verschieben wegen Veranstaltung"],
-                ["SERIE", "Alle kommenden Termine", "Titel, Ort, Uhrzeit, Serienende"],
+                ["SERIE", "Alle kommenden Termine", "Titel, Ort, Uhrzeit, Frist, Serienende"],
               ] as const
             ).map(([value, label, hint]) => (
               <button
@@ -209,6 +212,22 @@ export function EventForm({ kind, defaults, isSeries = false }: { kind: EventKin
           </Field>
         </div>
       )}
+
+      <Field
+        label="Zu-/Absagen möglich"
+        name="rsvpDeadlineHours"
+        hint={kind === "KEGELABEND" ? "Danach sind die Knöpfe gesperrt; nur Admins können noch ändern." : undefined}
+      >
+        <Select name="rsvpDeadlineHours" defaultValue={defaults.rsvpDeadlineHours === null ? "" : String(defaults.rsvpDeadlineHours)}>
+          {RSVP_DEADLINE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+          {/* Wert, der nicht in der Liste steht (z. B. aus älteren Einstellungen), trotzdem anzeigen */}
+          {defaults.rsvpDeadlineHours !== null && !RSVP_DEADLINE_OPTIONS.some((o) => o.value === String(defaults.rsvpDeadlineHours)) && (
+            <option value={String(defaults.rsvpDeadlineHours)}>Bis {defaults.rsvpDeadlineHours} Stunden vorher</option>
+          )}
+        </Select>
+      </Field>
 
       <Field label="Ort" name="location">
         <Input name="location" defaultValue={defaults.location ?? ""} placeholder="z. B. Gaststätte Zur Kugel, Bahn 2" />

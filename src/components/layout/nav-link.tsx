@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, CircleDot, CircleUser, Ellipsis, Gavel, House, PartyPopper, Settings, Trophy, Users, Wallet,
+  CalendarDays, CircleDot, CircleUser, Coins, Ellipsis, Gavel, House, PartyPopper, Settings, Trophy, Users, Wallet,
 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import type { IconName } from "./nav-items";
 
-const ICONS = { House, CircleDot, CalendarDays, Ellipsis, PartyPopper, Users, Trophy, Gavel, Wallet, CircleUser, Settings };
+const ICONS = { House, CircleDot, CalendarDays, Ellipsis, PartyPopper, Users, Trophy, Gavel, Wallet, Coins, CircleUser, Settings };
 
 /** Unterseiten, die in der mobilen Tab-Leiste zu einem Reiter gehören. */
 const TAB_ALIASES: Record<string, string[]> = {
   "/kegelabende": ["/kegelabende", "/termine"],
-  "/mehr": ["/mehr", "/kalender", "/events", "/mitglieder", "/beitraege", "/profil", "/verwaltung"],
+  "/strafen": ["/strafen", "/beitraege"],
+  "/mehr": ["/mehr", "/kalender", "/events", "/mitglieder", "/profil", "/verwaltung"],
 };
 
 const matches = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + "/");

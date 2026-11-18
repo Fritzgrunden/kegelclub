@@ -10,6 +10,7 @@ import {
   getParticipationOverview,
   setEventStatus,
   setParticipation,
+  setParticipationFor,
   updateEvent,
 } from "@/server/services/events";
 import { createTestUser, truncateAll } from "./helpers";
@@ -171,5 +172,78 @@ describe("An- und Abmeldung", () => {
     await expect(
       createEvent(admin, { kind: "EVENT", title: "X", date: future(5), time: "15:00", endTime: "14:00" }),
     ).rejects.toThrow(/Ende/);
+  });
+});
+
+describe("Zu-/Absagefrist", () => {
+  async function eventInHours(hours: number, deadlineHours: number | null) {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const startsAt = new Date(Date.now() + hours * 3600000);
+    const [row] = await getDb()
+      .insert(events)
+      .values({ kind: "KEGELABEND", title: "Kegelabend", startsAt, rsvpDeadlineHours: deadlineHours })
+      .returning({ id: events.id });
+    return { admin, eventId: row.id };
+  }
+
+  it("Frist wird beim Anlegen gespeichert und an alle Serientermine vererbt", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const res = await createEvent(admin, {
+      kind: "KEGELABEND", title: "Kegelabend", date: future(3), time: "19:00", recurrence: "WOECHENTLICH",
+      seriesEndDate: future(3 + 7 * 2), rsvpDeadlineHours: "24",
+    });
+    const rows = await getDb().select().from(events).where(eq(events.seriesId, res.seriesId!));
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.rsvpDeadlineHours === 24)).toBe(true);
+  });
+
+  it("vor Fristende kann man zu- und absagen", async () => {
+    const { eventId } = await eventInHours(48, 24);
+    const m = await createTestUser();
+    await setParticipation(m, eventId, "ZUGESAGT");
+    await setParticipation(m, eventId, "ABGESAGT");
+    expect((await getParticipationOverview(eventId)).abgesagt.map((p) => p.userId)).toEqual([m.id]);
+  });
+
+  it("nach Fristende sind Mitglieder gesperrt, Admins nicht", async () => {
+    const { admin, eventId } = await eventInHours(10, 24);
+    const m = await createTestUser();
+    await expect(setParticipation(m, eventId, "ZUGESAGT")).rejects.toThrow(/Frist/);
+    await setParticipation(admin, eventId, "ZUGESAGT");
+    expect((await getParticipationOverview(eventId)).zugesagt.map((p) => p.userId)).toEqual([admin.id]);
+  });
+
+  it("ohne Frist bleibt alles wie bisher", async () => {
+    const { eventId } = await eventInHours(1, null);
+    const m = await createTestUser();
+    await setParticipation(m, eventId, "ZUGESAGT");
+  });
+
+  it("ungültige Frist wird abgelehnt", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    await expect(
+      createEvent(admin, { kind: "KEGELABEND", title: "X", date: future(5), time: "19:00", rsvpDeadlineHours: "-3" }),
+    ).rejects.toThrow(/markierten Felder/);
+  });
+});
+
+describe("Admin trägt Rückmeldungen für andere ein", () => {
+  it("Admin kann nach Fristende für ein Mitglied zu-, absagen und zurücksetzen – Mitglieder nicht", async () => {
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    const m = await createTestUser();
+    const other = await createTestUser();
+    const [row] = await getDb()
+      .insert(events)
+      .values({ kind: "KEGELABEND", title: "Kegelabend", startsAt: new Date(Date.now() + 2 * 3600000), rsvpDeadlineHours: 24 })
+      .returning({ id: events.id });
+
+    await setParticipationFor(admin, row.id, m.id, "ZUGESAGT");
+    expect((await getParticipationOverview(row.id)).zugesagt.map((p) => p.userId)).toEqual([m.id]);
+    await setParticipationFor(admin, row.id, m.id, "ABGESAGT");
+    expect((await getParticipationOverview(row.id)).abgesagt.map((p) => p.userId)).toEqual([m.id]);
+    await setParticipationFor(admin, row.id, m.id, null);
+    expect((await getParticipationOverview(row.id)).offen.map((p) => p.userId)).toContain(m.id);
+
+    await expect(setParticipationFor(other, row.id, m.id, "ZUGESAGT")).rejects.toThrow();
   });
 });

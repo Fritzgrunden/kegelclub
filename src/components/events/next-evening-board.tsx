@@ -4,6 +4,7 @@ import { formatDate, formatTime, formatWeekday } from "@/lib/dates";
 import type { EventRow, ParticipationCounts } from "@/server/services/events";
 import type { RsvpStatus } from "@/server/db/schema";
 import { RsvpButtons } from "./rsvp-buttons";
+import { rsvpState } from "@/lib/rsvp";
 
 /** Die Kreidetafel: nächster Kegelabend mit Zu-/Absagen auf einen Blick. */
 export function NextEveningBoard({
@@ -11,12 +12,16 @@ export function NextEveningBoard({
   counts,
   myStatus,
   label = "Nächster Kegelabend",
+  canBypassDeadline = false,
 }: {
   event: EventRow;
   counts: ParticipationCounts;
   myStatus: RsvpStatus | null;
   label?: string;
+  /** Admins dürfen auch nach Fristende noch zu-/absagen. */
+  canBypassDeadline?: boolean;
 }) {
+  const rsvp = rsvpState(event, canBypassDeadline);
   return (
     <section className="tafel rounded-md p-5 sm:p-6" aria-label={label}>
       <p className="text-sm text-kreide-dim">{label}</p>
@@ -48,7 +53,7 @@ export function NextEveningBoard({
         </div>
       </dl>
 
-      <RsvpButtons eventId={event.id} status={myStatus} disabled={event.status === "ABGESAGT"} />
+      <RsvpButtons eventId={event.id} status={myStatus} disabled={event.status === "ABGESAGT" || rsvp.locked} note={rsvp.note} />
     </section>
   );
 }

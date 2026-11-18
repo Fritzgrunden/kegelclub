@@ -15,6 +15,8 @@ import { AppError, NotFoundError } from "@/lib/errors";
 import { addDaysYmd, toYmd, zonedToUtc } from "@/lib/dates";
 import { displayName } from "@/lib/format";
 import { generateOccurrenceDates } from "@/lib/recurrence";
+import { hasPermission } from "@/lib/permissions";
+import { isRsvpClosed } from "@/lib/rsvp";
 import { eventInputSchema, zodFieldErrors, type EventInput } from "@/lib/validation";
 import { assertCan } from "@/server/auth/guard";
 import type { Actor } from "@/server/auth/types";
@@ -53,6 +55,7 @@ export async function createEvent(actor: Actor, raw: unknown, imageId: string | 
     title: input.title,
     description: input.description,
     location: input.location,
+    rsvpDeadlineHours: input.rsvpDeadlineHours,
     imageId,
     createdById: actor.id,
   };
@@ -121,6 +124,7 @@ export async function updateEvent(actor: Actor, eventId: string, raw: unknown, s
         title: input.title,
         description: input.description,
         location: input.location,
+        rsvpDeadlineHours: input.rsvpDeadlineHours,
         startsAt,
         endsAt: computeEnd(input, startsAt),
         isDetached: existing.seriesId !== null,
@@ -145,6 +149,7 @@ export async function updateEvent(actor: Actor, eventId: string, raw: unknown, s
         location: input.location,
         startTime: input.time,
         endDate: input.seriesEndDate,
+        rsvpDeadlineHours: input.rsvpDeadlineHours,
         updatedAt: now,
       })
       .where(eq(eventSeries.id, seriesId));
@@ -163,6 +168,7 @@ export async function updateEvent(actor: Actor, eventId: string, raw: unknown, s
           title: input.title,
           description: input.description,
           location: input.location,
+          rsvpDeadlineHours: input.rsvpDeadlineHours,
           startsAt: zonedToUtc(ev.seriesDate, input.time),
           updatedAt: now,
         })
@@ -192,6 +198,7 @@ export async function updateEvent(actor: Actor, eventId: string, raw: unknown, s
           description: input.description,
           location: input.location,
           imageId: series.imageId,
+          rsvpDeadlineHours: input.rsvpDeadlineHours,
           startsAt: zonedToUtc(d, input.time),
           createdById: actor.id,
         })),
@@ -274,11 +281,22 @@ export async function getNextEvent(kind?: EventKind) {
 
 /* ───────────── Teilnahme ───────────── */
 
-export async function setParticipation(actor: Actor, eventId: string, status: RsvpStatus) {
-  assertCan(actor, "events:rsvp");
-  const event = await db.query.events.findFirst({ where: eq(events.id, eventId), columns: { id: true, status: true } });
+/** Nach Ablauf der Frist dürfen nur noch Termin-Verwalter (Admins) Rückmeldungen ändern. */
+async function assertRsvpOpen(actor: Actor, eventId: string) {
+  const event = await db.query.events.findFirst({
+    where: eq(events.id, eventId),
+    columns: { id: true, status: true, startsAt: true, rsvpDeadlineHours: true },
+  });
   if (!event) throw new NotFoundError("Termin nicht gefunden.");
   if (event.status === "ABGESAGT") throw new AppError("Dieser Termin wurde abgesagt.");
+  if (isRsvpClosed(event) && !hasPermission(actor, "events:manage")) {
+    throw new AppError("Die Frist für Zu- und Absagen ist abgelaufen. Bitte melde dich beim Vorstand.");
+  }
+}
+
+export async function setParticipation(actor: Actor, eventId: string, status: RsvpStatus) {
+  assertCan(actor, "events:rsvp");
+  await assertRsvpOpen(actor, eventId);
   await db
     .insert(eventParticipations)
     .values({ eventId, userId: actor.id, status })
@@ -290,7 +308,33 @@ export async function setParticipation(actor: Actor, eventId: string, status: Rs
 
 export async function clearParticipation(actor: Actor, eventId: string) {
   assertCan(actor, "events:rsvp");
+  await assertRsvpOpen(actor, eventId);
   await db.delete(eventParticipations).where(and(eq(eventParticipations.eventId, eventId), eq(eventParticipations.userId, actor.id)));
+}
+
+/**
+ * Admin trägt die Rückmeldung eines anderen Mitglieds ein – z. B. nach Fristende auf Zuruf.
+ * status = null entfernt die Rückmeldung („noch keine Antwort“).
+ */
+export async function setParticipationFor(actor: Actor, eventId: string, userId: string, status: RsvpStatus | null) {
+  assertCan(actor, "events:manage");
+  const event = await db.query.events.findFirst({ where: eq(events.id, eventId), columns: { id: true, status: true } });
+  if (!event) throw new NotFoundError("Termin nicht gefunden.");
+  if (event.status === "ABGESAGT") throw new AppError("Dieser Termin wurde abgesagt.");
+  const member = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { id: true, status: true } });
+  if (!member || (member.status !== "AKTIV" && member.status !== "PASSIV")) throw new NotFoundError("Mitglied nicht gefunden.");
+
+  if (status === null) {
+    await db.delete(eventParticipations).where(and(eq(eventParticipations.eventId, eventId), eq(eventParticipations.userId, userId)));
+    return;
+  }
+  await db
+    .insert(eventParticipations)
+    .values({ eventId, userId, status })
+    .onConflictDoUpdate({
+      target: [eventParticipations.eventId, eventParticipations.userId],
+      set: { status, updatedAt: new Date() },
+    });
 }
 
 export interface ParticipantInfo {

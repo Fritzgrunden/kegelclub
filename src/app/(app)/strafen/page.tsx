@@ -22,6 +22,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { Tabs } from "@/components/ui/tabs";
+import { moneyTabs } from "@/components/layout/money-tabs";
 import { cn } from "@/components/ui/cn";
 
 export const metadata: Metadata = { title: "Strafen" };
@@ -69,7 +70,6 @@ export default async function PenaltiesPage({
   const viewAll = hasPermission(user, "penalties:view-all");
   const cash = hasPermission(user, "cash:view");
   const cashManage = hasPermission(user, "cash:manage");
-  const kasseTab = { href: "/strafen?ansicht=kasse", label: "Kasse", active: sp.ansicht === "kasse" };
   const catalogButton = (
     <LinkButton href="/strafen/katalog" variant="secondary" size="sm">
       <BookOpen size={16} aria-hidden /> {hasPermission(user, "penalty-catalog:manage") ? "Strafarten & Beträge" : "Strafkatalog"}
@@ -78,7 +78,7 @@ export default async function PenaltiesPage({
 
   /* ───── Ansicht für Mitglieder: nur eigene Strafen ───── */
   if (!viewAll) {
-    const ownTabs = cash ? [{ href: "/strafen", label: "Meine Strafen", active: sp.ansicht !== "kasse" }, kasseTab] : [];
+    const ownTabs = moneyTabs(user, cash && sp.ansicht === "kasse" ? "kasse" : "strafen");
     if (cash && sp.ansicht === "kasse") {
       return (
         <>
@@ -92,7 +92,7 @@ export default async function PenaltiesPage({
     return (
       <>
         <PageHeader title="Meine Strafen" actions={catalogButton} />
-        {ownTabs.length > 0 && <Tabs items={ownTabs} />}
+        {ownTabs.length > 1 && <Tabs items={ownTabs} />}
         <Tally totalCents={summary.totalCents} label={summary.count === 1 ? "1 offene Strafe" : `${summary.count} offene Strafen`} />
         {items.length === 0 ? <EmptyState title="Keine Strafen – weiter so!" /> : <PenaltyList items={items} manage={false} showMember={false} />}
       </>
@@ -122,18 +122,18 @@ export default async function PenaltiesPage({
   const openSum = totals.reduce((s, t) => s + t.total, 0);
   const openCount = totals.reduce((s, t) => s + t.n, 0);
 
-  const tabs = [
+  const subTabs = [
     ...(manage ? [{ href: "/strafen", label: "Eintragen", active: view === "eintragen" }] : []),
     { href: "/strafen?ansicht=offen", label: "Offen", active: view === "offen", count: totals.length },
     { href: "/strafen?ansicht=verlauf", label: "Verlauf", active: view === "verlauf" },
-    ...(cash ? [kasseTab] : []),
   ];
 
   return (
     <>
       <PageHeader title={view === "kasse" ? "Kasse" : "Strafen"} actions={catalogButton} />
       {sp.gespeichert && <Alert tone="success" className="mb-4">Strafe eingetragen.</Alert>}
-      <Tabs items={tabs} />
+      <Tabs items={moneyTabs(user, view === "kasse" ? "kasse" : "strafen")} />
+      {view !== "kasse" && <Tabs items={subTabs} variant="sub" />}
 
       {view === "kasse" && <Kasse user={user} manage={cashManage} openForm={sp.neu === "1"} />}
 

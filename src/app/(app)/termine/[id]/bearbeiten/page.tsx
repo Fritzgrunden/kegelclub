@@ -32,6 +32,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             endDate: event.endsAt ? toYmd(event.endsAt) : null,
             endTime: event.endsAt ? toHm(event.endsAt) : null,
             seriesEndDate: event.series?.endDate ?? null,
+            rsvpDeadlineHours: event.rsvpDeadlineHours,
           }}
         />
       </Card>

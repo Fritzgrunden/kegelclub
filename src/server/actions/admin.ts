@@ -55,6 +55,7 @@ export async function updateSettingsAction(_prev: ActionResult | null, fd: FormD
       clubName: str(fd, "clubName"),
       defaultLocation: str(fd, "defaultLocation"),
       defaultTime: str(fd, "defaultTime"),
+      defaultRsvpDeadlineHours: optStr(fd, "defaultRsvpDeadlineHours") ?? "",
     });
     revalidatePath("/", "layout");
     return "Einstellungen gespeichert.";

@@ -13,7 +13,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/ui/action-button";
 import { ActionForm } from "@/components/ui/action-form";
-import { Field, Input, SubmitButton } from "@/components/ui/fields";
+import { Field, Input, Select, SubmitButton } from "@/components/ui/fields";
+import { RSVP_DEADLINE_OPTIONS } from "@/lib/rsvp";
 import { LinkButton } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Verwaltung" };
@@ -81,6 +82,17 @@ export default async function AdminPage() {
               <Field label="Vereinsname" name="clubName"><Input name="clubName" defaultValue={settings.clubName} /></Field>
               <Field label="Standard-Ort für Kegelabende" name="defaultLocation"><Input name="defaultLocation" defaultValue={settings.defaultLocation} /></Field>
               <Field label="Standard-Uhrzeit" name="defaultTime"><Input name="defaultTime" type="time" defaultValue={settings.defaultTime} /></Field>
+              <Field
+                label="Zu-/Absagen möglich"
+                name="defaultRsvpDeadlineHours"
+                hint="Vorschlag für neue Termine; beim einzelnen Termin oder der Serie änderbar. Bestehende Termine bleiben unverändert."
+              >
+                <Select name="defaultRsvpDeadlineHours" defaultValue={settings.defaultRsvpDeadlineHours}>
+                  {RSVP_DEADLINE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </Select>
+              </Field>
               <SubmitButton>Einstellungen speichern</SubmitButton>
             </ActionForm>
           </Card>

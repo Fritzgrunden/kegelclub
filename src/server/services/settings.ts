@@ -5,6 +5,7 @@ import { db } from "@/server/db";
 import { settings } from "@/server/db/schema";
 import { AppError } from "@/lib/errors";
 import { zodFieldErrors } from "@/lib/validation";
+import { MAX_RSVP_DEADLINE_HOURS } from "@/lib/rsvp";
 import { assertCan } from "@/server/auth/guard";
 import type { Actor } from "@/server/auth/types";
 
@@ -12,6 +13,11 @@ export const settingsSchema = z.object({
   clubName: z.string().trim().min(1, "Bitte einen Vereinsnamen angeben.").max(80),
   defaultLocation: z.string().trim().max(200),
   defaultTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Bitte eine gültige Uhrzeit angeben."),
+  /** Vorschlag für neue Termine: Zu-/Absagen bis so viele Stunden vorher; "" = keine Frist. */
+  defaultRsvpDeadlineHours: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (/^\d+$/.test(v) && Number(v) <= MAX_RSVP_DEADLINE_HOURS), "Bitte eine gültige Frist wählen."),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -20,6 +26,7 @@ const DEFAULTS: AppSettings = {
   clubName: process.env.CLUB_NAME || "Kegelclub",
   defaultLocation: "",
   defaultTime: "19:00",
+  defaultRsvpDeadlineHours: "",
 };
 
 export const getSettings = cache(async (): Promise<AppSettings> => {

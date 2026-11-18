@@ -11,6 +11,7 @@ import {
   setEventImage,
   setEventStatus,
   setParticipation,
+  setParticipationFor,
   updateEvent,
   type DeleteScope,
   type EditScope,
@@ -40,6 +41,7 @@ export async function saveEventAction(_prev: ActionResult | null, fd: FormData):
       monthWeek: optStr(fd, "monthWeek") ?? null,
       weekday: optStr(fd, "weekday") ?? null,
       seriesEndDate: optStr(fd, "seriesEndDate"),
+      rsvpDeadlineHours: optStr(fd, "rsvpDeadlineHours") ?? "",
     };
     const image = file(fd, "image");
     const imageId = image ? await storeImage(image, actor.id) : null;
@@ -75,6 +77,16 @@ export async function setEventStatusAction(fd: FormData): Promise<ActionResult> 
   return runAction(async () => {
     const actor = await requireActor();
     await setEventStatus(actor, str(fd, "id"), str(fd, "status") as EventStatus);
+    revalidatePath("/", "layout");
+  });
+}
+
+export async function rsvpForMemberAction(fd: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireActor();
+    const status = str(fd, "status");
+    if (status !== "ZUGESAGT" && status !== "ABGESAGT" && status !== "KEINE") throw new Error("Ungültiger Status");
+    await setParticipationFor(actor, str(fd, "eventId"), str(fd, "userId"), status === "KEINE" ? null : status);
     revalidatePath("/", "layout");
   });
 }

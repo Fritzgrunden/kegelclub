@@ -50,6 +50,13 @@
       "when": 1793539339533,
       "tag": "0006_remove_games_month_week",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794992526934,
+      "tag": "0007_rsvp_deadline_reminder",
+      "breakpoints": true
     }
   ]
 }

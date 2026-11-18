@@ -1,8 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "@/server/db/client";
-import { pushSubscriptions } from "@/server/db/schema";
+import { events, pushSubscriptions } from "@/server/db/schema";
+import { setEventStatus, setParticipation } from "@/server/services/events";
+import { addDaysYmd, toYmd, zonedToUtc } from "@/lib/dates";
 import { createPenalty, savePenaltyType } from "@/server/services/penalties";
-import { notifyNewRegistration, notifyPenaltyCreated } from "@/server/services/notifications";
+import { notifyNewRegistration, notifyPenaltyCreated, sendEventReminders } from "@/server/services/notifications";
 import { removeSubscription, saveSubscription, sendPushToUsers, setPushSenderForTests } from "@/server/services/push";
 import { createTestUser, truncateAll } from "./helpers";
 
@@ -139,5 +141,58 @@ describe("Benachrichtigungen", () => {
     await notifyPenaltyCreated(penaltyId);
     expect(sent).toHaveLength(2);
     expect(sent[0].payload.body).toContain("Handy am Tisch");
+  });
+});
+
+describe("Erinnerung am Vortag", () => {
+  /** Termin morgen um 19:00 Uhr (Vereinszeit), Erinnerung läuft heute um 18:00 Uhr. */
+  const runAt = zonedToUtc(addDaysYmd(toYmd(new Date()), 0), "18:00");
+  async function tomorrowEvening(deadlineHours: number | null = null, time = "19:00") {
+    const [row] = await getDb()
+      .insert(events)
+      .values({
+        kind: "KEGELABEND",
+        title: "Kegelabend",
+        location: "Zur Kugel",
+        startsAt: zonedToUtc(addDaysYmd(toYmd(runAt), 1), time),
+        rsvpDeadlineHours: deadlineHours,
+      })
+      .returning({ id: events.id });
+    return row.id;
+  }
+
+  it("erinnert nur aktive Mitglieder ohne Rückmeldung – und nur einmal", async () => {
+    const offen = await createTestUser({ firstName: "Offen" });
+    const zugesagt = await createTestUser();
+    const passiv = await createTestUser({ status: "PASSIV" });
+    const eOffen = await subscribe(offen.id);
+    await subscribe(zugesagt.id);
+    await subscribe(passiv.id);
+    const eventId = await tomorrowEvening(12);
+    await setParticipation(zugesagt, eventId, "ZUGESAGT");
+
+    const res = await sendEventReminders(runAt);
+    expect(res).toMatchObject({ events: 1, reminded: 1, notified: 1 });
+    expect(sent.map((s) => s.endpoint)).toEqual([eOffen]);
+    expect(sent[0].payload.title).toBe("Morgen: Kegelabend");
+    expect(sent[0].payload.body).toMatch(/19:00 Uhr · Zur Kugel – sagst du zu oder ab\? Antwort bis .*07:00 Uhr\./);
+    expect(sent[0].payload.url).toBe(`/termine/${eventId}`);
+
+    sent = [];
+    await sendEventReminders(runAt);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("keine Erinnerung, wenn die Frist schon abgelaufen ist, für abgesagte Termine oder Termine übermorgen", async () => {
+    const m = await createTestUser();
+    await subscribe(m.id);
+    const admin = await createTestUser({ roles: ["ADMIN"] });
+    await tomorrowEvening(48);
+    const cancelled = await tomorrowEvening(null, "20:00");
+    await setEventStatus(admin, cancelled, "ABGESAGT");
+    await getDb().insert(events).values({ kind: "KEGELABEND", title: "Später", startsAt: zonedToUtc(addDaysYmd(toYmd(runAt), 2), "19:00") });
+
+    await sendEventReminders(runAt);
+    expect(sent).toHaveLength(0);
   });
 });

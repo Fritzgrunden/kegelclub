@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Clock, X } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import type { RsvpStatus } from "@/server/db/schema";
 import { rsvpAction } from "@/server/actions/events";
@@ -12,11 +12,14 @@ export function RsvpButtons({
   status,
   size = "lg",
   disabled,
+  note,
 }: {
   eventId: string;
   status: RsvpStatus | null;
   size?: "md" | "lg";
   disabled?: boolean;
+  /** Hinweis zur Frist, z. B. „Zu-/Absagen bis Do, 19.11., 19:00 Uhr“ */
+  note?: string | null;
 }) {
   const [optimistic, setOptimistic] = useOptimistic(status);
   const [, startTransition] = useTransition();
@@ -62,6 +65,11 @@ export function RsvpButtons({
           <X size={20} aria-hidden /> {optimistic === "ABGESAGT" ? "Abgesagt" : "Absagen"}
         </button>
       </div>
+      {note && (
+        <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-sm text-kreide-dim">
+          <Clock size={14} aria-hidden className="shrink-0" /> {note}
+        </p>
+      )}
       {error && <p role="alert" className="mt-2 text-sm text-absage">{error}</p>}
     </div>
   );

@@ -38,6 +38,12 @@ export const registerSchema = profileSchema.extend({
   password: passwordSchema,
 });
 
+/** Leer/fehlend = keine Frist, sonst 0 bis 30 Tage in Stunden. */
+export const rsvpDeadlineHours = z.preprocess(
+  (v) => (v === "" || v === undefined || v === null ? null : Number(v)),
+  z.number({ invalid_type_error: "Bitte eine gültige Frist wählen." }).int().min(0).max(24 * 30, "Höchstens 30 Tage.").nullable(),
+);
+
 export const eventInputSchema = z
   .object({
     kind: z.enum(["KEGELABEND", "EVENT"]),
@@ -57,6 +63,8 @@ export const eventInputSchema = z
     monthWeek: z.coerce.number().int().min(1).max(5).optional().nullable(),
     weekday: z.coerce.number().int().min(0).max(6).optional().nullable(),
     seriesEndDate: optionalYmd,
+    /** Zu-/Absagen bis so viele Stunden vorher; leer = keine Frist. */
+    rsvpDeadlineHours: rsvpDeadlineHours,
   })
   .superRefine((v, ctx) => {
     if (v.recurrence === "INDIVIDUELL" && !v.intervalDays) {

@@ -5,12 +5,14 @@ import { hasPermission } from "@/lib/permissions";
 import { formatDate, formatDateTime, formatTime, formatWeekday, toYmd } from "@/lib/dates";
 import { EVENT_STATUS_LABELS, EVENT_TYPE_LABELS, formatEuro } from "@/lib/format";
 import { recurrenceLabel } from "@/lib/recurrence";
+import { rsvpState } from "@/lib/rsvp";
 import { requireUser } from "@/server/auth/session";
 import { getEvent, getMyParticipation, getParticipationOverview } from "@/server/services/events";
 import { listPenalties } from "@/server/services/penalties";
 import { deleteEventAction, setEventStatusAction } from "@/server/actions/events";
 import { RsvpButtons } from "@/components/events/rsvp-buttons";
 import { ParticipantList } from "@/components/events/participant-list";
+import { RsvpAdminList } from "@/components/events/rsvp-admin-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +36,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     showPenalties ? listPenalties(user, { eventId: id }) : Promise.resolve([]),
   ]);
   const cancelled = event.status === "ABGESAGT";
+  const rsvp = rsvpState(event, canManage);
   const multiDay = event.endsAt && toYmd(event.endsAt) !== toYmd(event.startsAt);
   const back = event.kind === "EVENT" ? "/events" : "/kegelabende";
 
@@ -95,7 +98,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <div><dt className="text-xs text-kreide-dim">ohne Antwort</dt><dd className="kreide font-display text-4xl font-bold tabular-nums">{overview.offen.length}</dd></div>
             </dl>
             {!cancelled ? (
-              <div className="mt-5"><RsvpButtons eventId={id} status={mine.get(id) ?? null} /></div>
+              <div className="mt-5"><RsvpButtons eventId={id} status={mine.get(id) ?? null} disabled={rsvp.locked} note={rsvp.note} /></div>
             ) : (
               <p className="mt-4 text-center text-absage">Dieser Termin wurde abgesagt.</p>
             )}
@@ -113,6 +116,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <ParticipantList title="Abgesagt" people={overview.abgesagt} tone="absage" />
             <ParticipantList title="Noch keine Rückmeldung" people={overview.offen} tone="offen" />
           </Card>
+
+          {canManage && !cancelled && (
+            <RsvpAdminList eventId={id} zugesagt={overview.zugesagt} abgesagt={overview.abgesagt} offen={overview.offen} />
+          )}
         </div>
 
         <div className="flex flex-col gap-5">
